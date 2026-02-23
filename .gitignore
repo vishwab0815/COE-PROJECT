@@ -1,44 +1,92 @@
-# ═══════════════════════════════════════
+# ═══════════════════════════════════════════════════
 #  Attendance AI — .gitignore
-# ═══════════════════════════════════════
+# ═══════════════════════════════════════════════════
 
-# ── Python ──
+# ── Python Bytecode & Cache ──
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
+.Python
+
+# ── Python Packaging ──
 *.egg-info/
 *.egg
-dist/
+*.whl
 build/
+develop-eggs/
 .eggs/
+sdist/
 
-# ── Environment ──
+# ── Virtual Environments ──
 .env
 .env.local
 .env.production
+.env.*.local
 .venv/
 venv/
+env/
 .cuda/
+ENV/
 
-# ── IDE ──
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-Thumbs.db
+# ── ML / Large Binary Files ──
+processed_dataset/
+*.faiss
+*.pkl
+*.h5
+*.hdf5
+*.onnx
+*.pt
+*.pth
+*.model
+*.weights
 
 # ── Node / Frontend ──
 frontend/node_modules/
 frontend/dist/
+frontend/dist-ssr/
 frontend/.vite/
+frontend/*.local
 
-# ── ML / Large Files ──
-processed_dataset/
-*.faiss
-*.pkl
+# ── IDE & Editors ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+*~
+
+# ── OS Generated ──
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
 # ── Logs ──
 *.log
+logs/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Testing & Coverage ──
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+
+# ── Jupyter Notebooks ──
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Misc ──
+*.bak
+*.tmp
+*.temp
+*.orig
