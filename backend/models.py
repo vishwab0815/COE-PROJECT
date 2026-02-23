@@ -1,0 +1,43 @@
+"""
+Pydantic schemas for request/response validation.
+"""
+
+from pydantic import BaseModel, Field
+from typing import Optional
+
+
+# ─── Student ─────────────────────────────────────────────────────────────────
+
+class StudentCreate(BaseModel):
+    roll_no: str = Field(..., example="1RV22CSE001")
+    name: str = Field(..., example="Rahul Kumar")
+    branch: str = Field(..., example="CSE")
+
+
+class StudentOut(BaseModel):
+    roll_no: str
+    name: str
+    branch: str
+
+
+# ─── Attendance ──────────────────────────────────────────────────────────────
+
+class AttendanceRecord(BaseModel):
+    roll_no: str
+    name: str
+    branch: str
+    date: str
+    time: str
+    status: str = "Present"
+
+
+# ─── Recognition ─────────────────────────────────────────────────────────────
+
+class RecognitionResult(BaseModel):
+    success: bool
+    roll_no: Optional[str] = None
+    name: Optional[str] = None
+    branch: Optional[str] = None
+    similarity: Optional[float] = None
+    status: str  # "Present", "Already Marked", "No Match", "No Face Detected"
+    message: str

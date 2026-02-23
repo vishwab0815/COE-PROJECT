@@ -1,0 +1,44 @@
+# ═══════════════════════════════════════
+#  Attendance AI — .gitignore
+# ═══════════════════════════════════════
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ── Environment ──
+.env
+.env.local
+.env.production
+.venv/
+venv/
+.cuda/
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Node / Frontend ──
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ── ML / Large Files ──
+processed_dataset/
+*.faiss
+*.pkl
+
+# ── Logs ──
+*.log
+npm-debug.log*
