@@ -1,12 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Webcam from 'react-webcam';
 import { api } from '../services/api';
-import { UserPlus, Camera, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+import { UserPlus, Camera, CheckCircle, XCircle, RotateCcw, LayoutDashboard } from 'lucide-react';
 
 const TOTAL_CAPTURES = 15;
 const CAPTURE_INTERVAL_MS = 300;
 
 export default function RegisterPage() {
+    const navigate = useNavigate();
     const webcamRef = useRef(null);
     const [rollNo, setRollNo] = useState('');
     const [name, setName] = useState('');
@@ -72,7 +74,7 @@ export default function RegisterPage() {
                         <div style={{
                             position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)',
                             width: 200, height: 260,
-                            border: phase === 'capturing' ? '3px solid var(--accent-green)' : '2px dashed rgba(99,102,241,0.25)',
+                            border: phase === 'capturing' ? '3px solid var(--accent-green)' : '2px dashed rgba(13,148,136,0.25)',
                             borderRadius: 24, pointerEvents: 'none', transition: 'all 0.3s',
                             boxShadow: phase === 'capturing' ? '0 0 30px rgba(16,185,129,0.2)' : 'none',
                         }}>
@@ -85,7 +87,7 @@ export default function RegisterPage() {
                         {/* ═══ COUNTDOWN ═══ */}
                         {phase === 'countdown' && (
                             <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
-                                <div style={{ fontSize: 120, fontWeight: 900, color: 'var(--accent-primary)', textShadow: '0 0 40px rgba(99,102,241,0.3)', animation: 'pulse 1s ease-in-out' }}>{countdown}</div>
+                                <div style={{ fontSize: 120, fontWeight: 900, color: 'var(--accent-primary)', textShadow: '0 0 40px rgba(13,148,136,0.3)', animation: 'pulse 1s ease-in-out' }}>{countdown}</div>
                                 <p style={{ color: 'var(--text-secondary)', fontSize: 16, fontWeight: 600 }}>Get ready — look straight at the camera</p>
                             </div>
                         )}
@@ -125,7 +127,10 @@ export default function RegisterPage() {
                                         <div><div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>Branch</div><div style={{ marginTop: 6 }}><span className="badge branch">{result.branch}</span></div></div>
                                         <div><div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>Embeddings</div><div style={{ fontSize: 15, fontWeight: 800, color: 'var(--accent-green)', marginTop: 4 }}>{result.embeddings_added} / {result.total_images}</div></div>
                                     </div>
-                                    <button className="btn btn-primary" onClick={reset} style={{ width: '100%', justifyContent: 'center' }}><UserPlus size={16} /> Register Another</button>
+                                    <div style={{ display: 'flex', gap: 10 }}>
+                                        <button className="btn btn-outline" onClick={reset} style={{ flex: 1, justifyContent: 'center' }}><UserPlus size={16} /> Register Another</button>
+                                        <button className="btn btn-primary" onClick={() => navigate('/')} style={{ flex: 1, justifyContent: 'center' }}><LayoutDashboard size={16} /> Dashboard</button>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -225,6 +230,9 @@ export default function RegisterPage() {
                                                 <option value="EEE">EEE</option>
                                                 <option value="CIVIL">CIVIL</option>
                                                 <option value="ISE">ISE</option>
+                                                <option value="AIML">AIML</option>
+                                                <option value="CSD">CSD</option>
+                                                <option value="CSDS">CSDS</option>
                                             </select>
                                         </div>
 

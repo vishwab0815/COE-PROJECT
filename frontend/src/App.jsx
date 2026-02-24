@@ -1,5 +1,9 @@
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Camera, Users, ClipboardList, BarChart3, UserPlus } from 'lucide-react';
+import { LayoutDashboard, Camera, Users, ClipboardList, BarChart3, UserPlus, LogOut, Scan } from 'lucide-react';
+import { useAuth } from './context/AuthContext';
+import PrivateRoute from './components/PrivateRoute';
+import LoginPage from './pages/LoginPage';
+import KioskPage from './pages/KioskPage';
 import Dashboard from './pages/Dashboard';
 import CameraPage from './pages/CameraPage';
 import RegisterPage from './pages/RegisterPage';
@@ -16,17 +20,24 @@ const navItems = [
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
 ];
 
-export default function App() {
-  const location = useLocation();
+function AdminLayout() {
+  const { logout } = useAuth();
 
   return (
     <div className="app-layout">
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="brand-icon">🎯</div>
+          <div className="brand-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10A10 10 0 0 1 2 12 10 10 0 0 1 12 2z" fill="none" />
+              <circle cx="12" cy="10" r="3" fill="white" stroke="none" />
+              <path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
           <div>
-            <h1>Attendance AI</h1>
+            <h1>Attend-AI</h1>
             <span>Face Recognition System</span>
           </div>
         </div>
@@ -43,6 +54,16 @@ export default function App() {
               {label}
             </NavLink>
           ))}
+
+          <div style={{ flex: 1 }} />
+
+          <NavLink to="/kiosk" className="nav-link" style={{ color: 'var(--accent-primary)', opacity: 0.7 }}>
+            <Scan /> Kiosk Mode
+          </NavLink>
+
+          <button onClick={logout} className="nav-link" style={{ color: 'var(--accent-red)', opacity: 0.7 }}>
+            <LogOut /> Logout
+          </button>
         </nav>
 
         <div className="sidebar-status">
@@ -64,5 +85,22 @@ export default function App() {
         </Routes>
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/kiosk" element={<KioskPage />} />
+
+      {/* Protected admin routes */}
+      <Route path="/*" element={
+        <PrivateRoute>
+          <AdminLayout />
+        </PrivateRoute>
+      } />
+    </Routes>
   );
 }

@@ -103,7 +103,7 @@ export default function CameraPage() {
                         {/* Face guide */}
                         <div style={{
                             position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                            width: 180, height: 230, border: '2px dashed rgba(99,102,241,0.3)',
+                            width: 180, height: 230, border: '2px dashed rgba(13,148,136,0.3)',
                             borderRadius: 24, pointerEvents: 'none',
                         }}>
                             <div style={{ position: 'absolute', top: -6, left: -6, width: 16, height: 16, borderTop: '3px solid var(--accent-primary)', borderLeft: '3px solid var(--accent-primary)', borderRadius: '6px 0 0 0' }} />
@@ -112,29 +112,6 @@ export default function CameraPage() {
                             <div style={{ position: 'absolute', bottom: -6, right: -6, width: 16, height: 16, borderBottom: '3px solid var(--accent-primary)', borderRight: '3px solid var(--accent-primary)', borderRadius: '0 0 6px 0' }} />
                         </div>
 
-                        {/* History strip */}
-                        {history.length > 0 && (
-                            <div style={{ position: 'absolute', bottom: 16, left: 16, right: 280, display: 'flex', gap: 8, overflow: 'hidden' }}>
-                                {history.slice(0, 5).map((h, i) => (
-                                    <div key={i} style={{
-                                        background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)',
-                                        border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, padding: '8px 14px',
-                                        display: 'flex', alignItems: 'center', gap: 10, animation: 'fadeIn 0.3s ease', minWidth: 'fit-content',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                                    }}>
-                                        <div style={{
-                                            width: 30, height: 30, borderRadius: 8, background: 'var(--gradient-green)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0,
-                                        }}>{h.name?.charAt(0)}</div>
-                                        <div>
-                                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{h.name}</div>
-                                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{h.roll_no}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
 
                         {/* Stats chip */}
                         <div style={{

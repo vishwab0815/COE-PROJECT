@@ -26,6 +26,9 @@ export const api = {
 
     getStudent: (rollNo) => request(`/students/${rollNo}`).then(r => r.json()),
 
+    deleteStudent: (rollNo) =>
+        request(`/students/${rollNo}`, { method: 'DELETE' }).then(r => r.json()),
+
     registerStudent: (data) =>
         request('/register', {
             method: 'POST',

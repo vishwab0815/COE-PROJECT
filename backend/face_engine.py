@@ -198,6 +198,62 @@ class FaceEngine:
             "error": None,
         }
 
+    def delete_student(self, roll_no: str) -> dict:
+        """
+        Delete a student from FAISS index, labels, and their photo folder.
+        Rebuilds the FAISS index without the target student's embeddings.
+        """
+        if not self._initialized:
+            return {"success": False, "error": "Engine not initialized"}
+
+        import shutil
+
+        roll_no = roll_no.upper()
+
+        # Count embeddings to remove
+        indices_to_keep = [i for i, label in enumerate(self.labels) if label != roll_no]
+        removed_count = len(self.labels) - len(indices_to_keep)
+
+        if removed_count == 0 and not os.path.exists(os.path.join(BASE_DIR, "processed_dataset", roll_no)):
+            return {"success": False, "error": f"No embeddings or photos found for {roll_no}"}
+
+        # Rebuild FAISS index without deleted student
+        if indices_to_keep and self.index.ntotal > 0:
+            # Extract remaining embeddings
+            all_embeddings = np.array([self.index.reconstruct(i) for i in indices_to_keep], dtype=np.float32)
+            new_labels = [self.labels[i] for i in indices_to_keep]
+
+            # Rebuild index
+            new_index = faiss.IndexFlatIP(512)
+            new_index.add(all_embeddings)
+            self.index = new_index
+            self.labels = new_labels
+        else:
+            # No embeddings left — create empty index
+            self.index = faiss.IndexFlatIP(512)
+            self.labels = []
+
+        # Persist
+        faiss.write_index(self.index, FAISS_INDEX_PATH)
+        with open(LABELS_PATH, "wb") as f:
+            pickle.dump(self.labels, f)
+
+        # Delete photo folder
+        student_dir = os.path.join(BASE_DIR, "processed_dataset", roll_no)
+        photos_deleted = 0
+        if os.path.exists(student_dir):
+            photos_deleted = len([f for f in os.listdir(student_dir) if os.path.isfile(os.path.join(student_dir, f))])
+            shutil.rmtree(student_dir)
+
+        print(f"  [FaceEngine] Deleted {roll_no}: {removed_count} embeddings removed, {photos_deleted} photos deleted (index total: {self.index.ntotal})")
+
+        return {
+            "success": True,
+            "embeddings_removed": removed_count,
+            "photos_deleted": photos_deleted,
+            "index_total": self.index.ntotal,
+        }
+
 
 # Global singleton instance
 engine = FaceEngine()

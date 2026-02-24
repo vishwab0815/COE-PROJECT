@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { CalendarDays, Download, Search } from 'lucide-react';
+import { Download, Search } from 'lucide-react';
+import DatePicker from '../components/DatePicker';
 
 export default function AttendancePage() {
     const [records, setRecords] = useState([]);
@@ -53,16 +54,7 @@ export default function AttendancePage() {
             <div className="page-body">
                 {/* Filters */}
                 <div className="filter-bar fade-in">
-                    <div style={{ position: 'relative' }}>
-                        <CalendarDays size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input
-                            className="input"
-                            type="date"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            style={{ paddingLeft: 36, maxWidth: 200 }}
-                        />
-                    </div>
+                    <DatePicker value={date} onChange={setDate} />
 
                     <select
                         className="select"
@@ -77,6 +69,9 @@ export default function AttendancePage() {
                         <option value="EEE">EEE</option>
                         <option value="CIVIL">CIVIL</option>
                         <option value="ISE">ISE</option>
+                        <option value="AIML">AIML</option>
+                        <option value="CSD">CSD</option>
+                        <option value="CSDS">CSDS</option>
                     </select>
 
                     <div style={{ position: 'relative' }}>

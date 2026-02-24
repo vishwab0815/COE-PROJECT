@@ -30,7 +30,7 @@ from .routes import students, attendance
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle."""
     print("\n" + "=" * 60)
-    print("  ATTENDANCE AI — Starting up...")
+    print("  ATTEND-AI — Starting up...")
     print("=" * 60)
 
     # 1. Initialize face recognition engine (loads models on GPU)

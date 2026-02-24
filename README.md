@@ -1,12 +1,96 @@
-# 🎯 Attendance AI
+# 🧠 Attend-AI
 
-> **AI-powered face recognition attendance system** built with FaceNet, FAISS, FastAPI, React, and CUDA GPU acceleration.
+> **AI-powered face recognition attendance system** built with FaceNet, FAISS, FastAPI, React, and CUDA GPU acceleration. Award-winning glassmorphism interface with real-time analytics.
 
 ---
 
 ## 📌 What This Project Does
 
 A student walks in front of a camera → their face is **detected, extracted, matched** against a database of known faces → attendance is **automatically marked** in MongoDB. All in **under 1 second**, powered by your GPU.
+
+---
+
+## ⚡ Quick Start (How to Run)
+
+### Prerequisites
+
+| Requirement | Version |
+|-------------|---------|
+| Python | 3.10+ |
+| Node.js | 18+ |
+| NVIDIA GPU | CUDA-capable with drivers installed |
+| MongoDB Atlas | Free tier works fine |
+
+### Step 1 — Clone & Setup Python Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/your-username/attendance_ai.git
+cd attendance_ai
+
+# Create a virtual environment
+python -m venv .cuda
+
+# Activate it
+.cuda\Scripts\activate          # Windows (PowerShell)
+# source .cuda/bin/activate     # Linux / Mac
+```
+
+### Step 2 — Install Python Dependencies
+
+```bash
+# Install requirements
+pip install -r requirements.txt
+
+# Install PyTorch with CUDA support (if not already)
+# Visit https://pytorch.org/get-started/locally/ for the correct command
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+```
+
+### Step 3 — Configure Environment Variables
+
+Create a `.env` file inside the `attendance_ai/` folder:
+
+```env
+MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/?retryWrites=true&w=majority
+DB_NAME=attendance_ai
+SIMILARITY_THRESHOLD=0.65
+```
+
+> Replace `<username>` and `<password>` with your MongoDB Atlas credentials.
+
+### Step 4 — Start the Backend
+
+```bash
+cd attendance_ai
+python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000
+```
+
+> ⚠️ **Important**: You **must** run this from inside the `attendance_ai/` directory, not the parent folder. Otherwise you'll get `ModuleNotFoundError: No module named 'backend'`.
+
+You should see:
+```
+═══════════════════════════════════════
+  ATTEND-AI — Starting up...
+═══════════════════════════════════════
+  [FaceEngine] Device: cuda (NVIDIA GeForce RTX ...)
+  [FaceEngine] Ready for recognition
+```
+
+### Step 5 — Start the Frontend (new terminal)
+
+```bash
+cd attendance_ai/frontend
+npm install      # first time only
+npm run dev
+```
+
+### Step 6 — Open the App
+
+| URL | What |
+|-----|------|
+| **http://localhost:5173** | Dashboard (Frontend) |
+| **http://localhost:8000/docs** | API Documentation (Swagger) |
 
 ---
 
@@ -117,47 +201,6 @@ Query embedding → FAISS IndexFlatIP → Best match + similarity score
 
 ## 🔄 Data Processing Pipeline
 
-### Initial Setup (one-time, ~12 min for 423 students)
-
-```
-Step 1: Raw images (LFW dataset)
-         │
-Step 2: MTCNN detects face → crops to 160×160
-         │
-Step 3: InceptionResnetV1 generates 512D embedding (on GPU)
-         │
-Step 4: L2 normalize each embedding
-         │
-Step 5: All embeddings → FAISS IndexFlatIP
-         │
-         ▼
-   student_index.faiss (29,852 vectors)
-   labels.pkl (maps vector index → roll_no)
-```
-
-**Why 12 minutes?** We processed ~48,000 images (423 students × ~114 images each including augmentations). Each image requires MTCNN detection + FaceNet inference = ~15ms per image on GPU.
-
-### Live Recognition (real-time, < 200ms)
-
-```
-Camera frame
-    │
-    ▼
-MTCNN → detect face → crop 160×160
-    │
-    ▼
-FaceNet → 512D embedding
-    │
-    ▼
-L2 normalize
-    │
-    ▼
-FAISS search → nearest neighbor → roll_no + similarity
-    │
-    ▼
-If similarity ≥ 0.65 → Mark attendance in MongoDB
-```
-
 ### Live Registration (new student, ~5 seconds)
 
 ```
@@ -180,29 +223,99 @@ labels.pkl updated → student immediately recognizable
 MongoDB → student record created
 ```
 
+### Live Recognition (real-time, < 200ms)
+
+```
+Camera frame
+    │
+    ▼
+MTCNN → detect face → crop 160×160
+    │
+    ▼
+FaceNet → 512D embedding
+    │
+    ▼
+L2 normalize
+    │
+    ▼
+FAISS search → nearest neighbor → roll_no + similarity
+    │
+    ▼
+If similarity ≥ 0.65 → Mark attendance in MongoDB
+```
+
+---
+
+## 🎨 Design System
+
+The UI is built with an **Awwwards-grade** glassmorphism design:
+
+- **Teal/Emerald** primary palette (`#0d9488`)
+- **Glassmorphism** sidebar and headers with `backdrop-filter: blur(24px)`
+- **Mesh gradient** background with organic depth
+- **Spring-physics** micro-animations on cards, buttons, and icons
+- **Plus Jakarta Sans** font (weight 300–900)
+- **Responsive**: 3-tier breakpoints (1024px tablet → 768px mobile → 480px small)
+
+### Supported Branches
+
+CSE · ECE · ME · EEE · CIVIL · ISE · AIML · CSD · CSDS
+
+---
+
+## 📁 Project Structure
+
+```
+attendance_ai/
+│
+├── backend/                     # FastAPI server
+│   ├── __init__.py
+│   ├── app.py                  # Entry point, lifespan, CORS
+│   ├── config.py               # Settings from .env
+│   ├── database.py             # Async MongoDB (Motor) + certifi SSL
+│   ├── face_engine.py          # CUDA face engine + registration + deletion
+│   ├── models.py               # Pydantic schemas
+│   ├── seed.py                 # Seed students from metadata.csv
+│   └── routes/
+│       ├── __init__.py
+│       ├── students.py         # Student CRUD + DELETE + face registration
+│       └── attendance.py       # Mark attendance + reports + CSV export
+│
+├── frontend/                    # React dashboard (Vite)
+│   ├── index.html              # Entry HTML + meta tags + OG
+│   ├── package.json            # Node dependencies
+│   ├── vite.config.js          # Proxy to backend :8000
+│   └── src/
+│       ├── App.jsx             # Layout + sidebar + routing
+│       ├── main.jsx            # React entry point
+│       ├── index.css           # Awwwards-grade design system
+│       ├── services/api.js     # API client wrapper
+│       ├── components/
+│       │   └── DatePicker.jsx  # Custom glassmorphism date picker
+│       └── pages/
+│           ├── Dashboard.jsx       # Live stats + activity feed
+│           ├── CameraPage.jsx      # CCTV auto-scan + recognition
+│           ├── RegisterPage.jsx    # Face registration with burst capture
+│           ├── StudentsPage.jsx    # Student directory + delete
+│           ├── AttendancePage.jsx  # Logs + custom date picker + CSV
+│           └── AnalyticsPage.jsx   # Power BI-style charts + KPIs
+│
+├── processed_dataset/           # Face images per student
+├── student_index.faiss         # FAISS index (face embeddings)
+├── labels.pkl                  # Maps embedding index → roll_no
+├── requirements.txt            # Python dependencies
+├── .env                        # MongoDB URI + config (gitignored)
+├── .gitignore                  # Git ignore rules
+└── README.md                   # This file
+```
+
 ---
 
 ## ❓ FAQ
 
-### "If I had NO data and registered my face as the first student, would it work?"
+### "If I register as the first student, will it work?"
 
-**Yes, absolutely.** Here's what would happen:
-
-1. You start with an **empty FAISS index** (0 vectors)
-2. You register yourself via the camera → 15 frames captured → ~10-12 embeddings extracted
-3. Those embeddings are **added to the FAISS index** → index now has 10-12 vectors, all labeled with your roll number
-4. Next time the camera sees you → FAISS finds the nearest match → your embeddings → similarity ≈ 0.95+ → attendance marked
-
-The only requirement: an empty FAISS index must exist first. The system can grow from 0 to any number of students entirely through the registration feature.
-
-### "Why does initial training take 12 minutes but registration takes 5 seconds?"
-
-| | Initial Training | Live Registration |
-|---|---|---|
-| **Images** | ~48,000 (6 per student × 423 students × augmentations) | 15 frames |
-| **Purpose** | Build the full index from scratch | Add to existing index |
-| **FAISS operation** | Create new `IndexFlatIP` | `index.add()` (append) |
-| **Time** | ~12 min | ~3-5 sec |
+**Yes.** You start with an empty FAISS index (0 vectors). After registration, ~10-12 embeddings are added. Next time the camera sees you → FAISS finds the nearest match → attendance marked.
 
 ### "What is the similarity threshold (0.65)?"
 
@@ -215,103 +328,6 @@ The threshold is configurable in `.env` (`SIMILARITY_THRESHOLD`).
 
 ---
 
-## 📁 Project Structure
-
-```
-attendance_ai/
-│
-├── backend/                    # FastAPI server
-│   ├── __init__.py            # Package marker (empty, required)
-│   ├── app.py                 # Entry point, lifespan, CORS
-│   ├── config.py              # Settings from .env
-│   ├── database.py            # Async MongoDB (Motor)
-│   ├── face_engine.py         # CUDA face recognition + registration
-│   ├── models.py              # Pydantic schemas
-│   ├── seed.py                # Seed students from metadata.csv
-│   └── routes/
-│       ├── __init__.py        # Package marker (empty, required)
-│       ├── students.py        # Student CRUD + face registration
-│       └── attendance.py      # Mark attendance + reports + CSV
-│
-├── frontend/                   # React dashboard (Vite)
-│   ├── index.html             # Entry HTML (Plus Jakarta Sans font)
-│   ├── package.json           # Node dependencies
-│   ├── vite.config.js         # Proxy to backend
-│   └── src/
-│       ├── App.jsx            # Layout + sidebar + routing
-│       ├── main.jsx           # React entry point
-│       ├── index.css          # Design system (light vibrant theme)
-│       ├── services/api.js    # API client wrapper
-│       └── pages/
-│           ├── Dashboard.jsx      # Live stats + activity feed
-│           ├── CameraPage.jsx     # CCTV auto-scan + recognition modal
-│           ├── RegisterPage.jsx   # Face registration with burst capture
-│           ├── StudentsPage.jsx   # Searchable student directory
-│           ├── AttendancePage.jsx  # Attendance logs + CSV export
-│           └── AnalyticsPage.jsx  # Charts + branch breakdown
-│
-├── processed_dataset/          # Face images per student (created by registration)
-├── student_index.faiss        # FAISS index (face embeddings)
-├── labels.pkl                 # Maps embedding index → roll_no
-├── requirements.txt           # Python dependencies
-├── .env                       # MongoDB URI + config (gitignored)
-├── .gitignore                 # Git ignore rules
-└── README.md                  # This file
-```
-
----
-
-## 🚀 How to Run
-
-### Prerequisites
-- Python 3.10+ with CUDA-enabled PyTorch
-- Node.js 18+
-- NVIDIA GPU with CUDA drivers
-- MongoDB Atlas account (free tier works)
-
-### 1. Setup Environment
-```bash
-# Create virtual environment
-python -m venv .cuda
-.cuda\Scripts\activate          # Windows
-# source .cuda/bin/activate     # Linux/Mac
-
-# Install dependencies
-cd attendance_ai
-pip install -r requirements.txt
-
-# For CUDA PyTorch (if not already installed):
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
-```
-
-### 2. Configure
-```bash
-# Create .env file in attendance_ai/
-MONGO_URI=mongodb+srv://your_username:your_password@cluster.mongodb.net/?retryWrites=true&w=majority
-DB_NAME=attendance_ai
-SIMILARITY_THRESHOLD=0.65
-```
-
-### 3. Start Backend
-```bash
-cd attendance_ai
-python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000
-```
-> ⚠️ **Important**: You must `cd attendance_ai` first! Running from the parent directory causes `ModuleNotFoundError: No module named 'backend'`
-
-### 4. Start Frontend (new terminal)
-```bash
-cd attendance_ai/frontend
-npm install      # first time only
-npm run dev
-```
-
-### 5. Open
-- **Dashboard**: http://localhost:5173
-- **API Docs**: http://localhost:8000/docs
-
----
-
 ## 🔌 API Endpoints
 
 | Method | Endpoint | Description |
@@ -319,6 +335,7 @@ npm run dev
 | GET | `/` | Health check (GPU status) |
 | GET | `/students` | List students (search, filter, paginate) |
 | GET | `/students/{roll_no}` | Get single student |
+| DELETE | `/students/{roll_no}` | Delete student + FAISS + photos |
 | POST | `/register` | Register student (JSON) |
 | POST | `/register-with-face` | Register with camera (multipart) |
 | POST | `/mark-attendance` | Upload image → recognize → log |
@@ -349,6 +366,16 @@ npm run dev
 | `faiss-cpu` | 1.13.2 | Vector similarity search |
 | `fastapi` | 0.131.0 | Async REST API |
 | `motor` | 3.7.1 | Async MongoDB driver |
+| `certifi` | latest | SSL certificate bundle |
 | `react` | 19.x | UI framework |
 | `recharts` | 2.x | Charts and analytics |
 | `react-webcam` | 7.x | Camera integration |
+| `lucide-react` | latest | Icon library |
+
+---
+
+## 👤 Author
+
+**Vishwanath B**
+
+---

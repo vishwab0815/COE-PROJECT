@@ -1,5 +1,5 @@
 """
-Student routes — GET /students, POST /register, POST /register-with-face
+Student routes — GET /students, POST /register, POST /register-with-face, DELETE /students/{roll_no}
 """
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
@@ -117,3 +117,36 @@ async def register_with_face(
         "message": f"Registered {name} ({roll_no}) with {result['embeddings_added']} face embeddings",
     }
 
+
+@router.delete("/students/{roll_no}")
+async def delete_student(roll_no: str):
+    """
+    Delete a student completely:
+    - Remove from MongoDB (students + attendance records)
+    - Remove from FAISS index (embeddings)
+    - Delete their photo folder from processed_dataset/
+    """
+    db = get_db()
+    roll_no = roll_no.upper()
+
+    # Check if student exists in DB
+    student = await db.students.find_one({"roll_no": roll_no})
+    if not student:
+        raise HTTPException(status_code=404, detail=f"Student {roll_no} not found")
+
+    # Delete from FAISS index + photos
+    face_result = engine.delete_student(roll_no)
+
+    # Delete from MongoDB
+    await db.students.delete_one({"roll_no": roll_no})
+    att_result = await db.attendance.delete_many({"roll_no": roll_no})
+
+    return {
+        "success": True,
+        "roll_no": roll_no,
+        "name": student.get("name", ""),
+        "embeddings_removed": face_result.get("embeddings_removed", 0),
+        "photos_deleted": face_result.get("photos_deleted", 0),
+        "attendance_records_deleted": att_result.deleted_count,
+        "message": f"Deleted {student.get('name', roll_no)} — {face_result.get('embeddings_removed', 0)} embeddings, {face_result.get('photos_deleted', 0)} photos removed",
+    }

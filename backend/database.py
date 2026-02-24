@@ -2,6 +2,7 @@
 Async MongoDB connection via Motor.
 """
 
+import certifi
 from motor.motor_asyncio import AsyncIOMotorClient
 from .config import settings
 
@@ -12,7 +13,11 @@ db = None
 async def connect_db():
     """Initialize the MongoDB connection and create indexes."""
     global client, db
-    client = AsyncIOMotorClient(settings.MONGO_URI)
+    client = AsyncIOMotorClient(
+        settings.MONGO_URI,
+        tlsCAFile=certifi.where(),
+        serverSelectionTimeoutMS=10000,
+    )
     db = client[settings.DB_NAME]
 
     # Verify connection
