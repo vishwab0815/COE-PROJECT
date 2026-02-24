@@ -81,31 +81,6 @@ export default function KioskPage() {
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             />
 
-            {/* Center face guide */}
-            <div style={{
-                position: 'absolute', top: '42%', left: '50%', transform: 'translate(-50%,-50%)',
-                width: 240, height: 300,
-                border: showResults ? '3px solid rgba(16,185,129,0.8)' : '2px solid rgba(13,148,136,0.3)',
-                borderRadius: 30, pointerEvents: 'none', transition: 'all 0.4s',
-                boxShadow: showResults
-                    ? '0 0 60px rgba(16,185,129,0.15), inset 0 0 40px rgba(16,185,129,0.05)'
-                    : '0 0 40px rgba(13,148,136,0.05)',
-            }}>
-                {[
-                    { top: -6, left: -6, bt: '3px solid var(--accent-primary)', bl: '3px solid var(--accent-primary)', br: '10px 0 0 0' },
-                    { top: -6, right: -6, bt: '3px solid var(--accent-primary)', borderRight: '3px solid var(--accent-primary)', br: '0 10px 0 0' },
-                    { bottom: -6, left: -6, bb: '3px solid var(--accent-primary)', bl: '3px solid var(--accent-primary)', br: '0 0 0 10px' },
-                    { bottom: -6, right: -6, bb: '3px solid var(--accent-primary)', borderRight: '3px solid var(--accent-primary)', br: '0 0 10px 0' },
-                ].map((s, i) => (
-                    <div key={i} style={{
-                        position: 'absolute', width: 24, height: 24,
-                        top: s.top, left: s.left, right: s.right, bottom: s.bottom,
-                        borderTop: s.bt, borderLeft: s.bl, borderBottom: s.bb, borderRight: s.borderRight,
-                        borderRadius: s.br,
-                    }} />
-                ))}
-            </div>
-
             {/* Top bar */}
             <div style={{
                 position: 'absolute', top: 0, left: 0, right: 0,
