@@ -35,9 +35,9 @@ export default function KioskPage() {
                 return;
             }
 
-            // Got results — show them
-            if (data.results && data.results.length > 0) {
-                setResults(data.results);
+            // Show overlay if faces are detected (even if unrecognized)
+            if (data.faces_detected > 0) {
+                setResults(data.results || []);
                 setFacesDetected(data.faces_detected);
                 setShowResults(true);
                 setScanning(false);
@@ -47,7 +47,7 @@ export default function KioskPage() {
                     setFacesDetected(0);
                     setScanning(true);
                     busyRef.current = false;
-                }, 5000);
+                }, 4000);
                 return;
             }
 
@@ -175,7 +175,7 @@ export default function KioskPage() {
             )}
 
             {/* ═══ MULTI-FACE RESULTS OVERLAY ═══ */}
-            {showResults && results.length > 0 && (
+            {showResults && facesDetected > 0 && (
                 <div style={{
                     position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 50,
                     background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.6), transparent)',
@@ -213,6 +213,15 @@ export default function KioskPage() {
                                 color: '#0ea5e9', fontSize: 13, fontWeight: 700,
                             }}>
                                 ↻ {alreadyMarked} already marked
+                            </div>
+                        )}
+                        {facesDetected > 0 && results.length === 0 && (
+                            <div style={{
+                                padding: '8px 18px', background: 'rgba(239,68,68,0.15)',
+                                borderRadius: 100, border: '1px solid rgba(239,68,68,0.2)',
+                                color: '#ef4444', fontSize: 13, fontWeight: 700,
+                            }}>
+                                ✕ {facesDetected} Unrecognized
                             </div>
                         )}
                     </div>
