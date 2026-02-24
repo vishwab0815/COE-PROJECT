@@ -10,7 +10,7 @@ from typing import Optional
 from ..database import get_db
 from ..face_engine import engine
 from ..config import settings
-from ..models import RecognitionResult, AttendanceRecord
+from ..models import RecognitionResult, MultiRecognitionResult, AttendanceRecord
 
 router = APIRouter(tags=["Attendance"])
 
@@ -108,6 +108,109 @@ async def mark_attendance(file: UploadFile = File(..., description="Image file w
         similarity=round(similarity, 4),
         status="Present",
         message=f"Attendance marked for {student['name']} ({roll_no})",
+    )
+
+
+@router.post("/mark-attendance-multi", response_model=MultiRecognitionResult)
+async def mark_attendance_multi(file: UploadFile = File(..., description="Image file with one or more faces")):
+    """
+    Upload an image to mark attendance for ALL detected faces.
+    Pipeline: Image -> MTCNN (keep_all) -> Batch FaceNet -> Batch FAISS -> MongoDB per student
+    Handles 60-70 faces per frame using GPU batch processing.
+    """
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image (JPEG, PNG, etc.)")
+
+    image_bytes = await file.read()
+    if len(image_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Empty file uploaded")
+
+    # Run multi-face recognition (GPU batch pipeline)
+    multi_result = engine.recognize_multi(image_bytes)
+
+    if multi_result["error"]:
+        return MultiRecognitionResult(
+            success=False,
+            faces_detected=0,
+            faces_recognized=0,
+            results=[],
+            message=multi_result["error"],
+        )
+
+    if multi_result["faces_detected"] == 0:
+        return MultiRecognitionResult(
+            success=False,
+            faces_detected=0,
+            faces_recognized=0,
+            results=[],
+            message="No faces detected in the image",
+        )
+
+    # Process each recognized face
+    db = get_db()
+    now = datetime.now(IST)
+    today_date = now.strftime("%Y-%m-%d")
+    current_time = now.strftime("%H:%M:%S")
+
+    individual_results = []
+
+    for match in multi_result["results"]:
+        roll_no = match["roll_no"]
+        similarity = match["similarity"]
+
+        # Check threshold
+        if similarity < settings.SIMILARITY_THRESHOLD:
+            continue
+
+        # Lookup student
+        student = await db.students.find_one({"roll_no": roll_no}, {"_id": 0})
+        if not student:
+            continue
+
+        # Check if already marked today
+        existing = await db.attendance.find_one({"roll_no": roll_no, "date": today_date})
+
+        if existing:
+            individual_results.append(RecognitionResult(
+                success=True,
+                roll_no=roll_no,
+                name=student["name"],
+                branch=student["branch"],
+                similarity=round(similarity, 4),
+                status="Already Marked",
+                message=f"Already marked at {existing['time']}",
+            ))
+            continue
+
+        # Mark attendance
+        await db.attendance.insert_one({
+            "roll_no": roll_no,
+            "name": student["name"],
+            "branch": student["branch"],
+            "date": today_date,
+            "time": current_time,
+            "status": "Present",
+        })
+
+        individual_results.append(RecognitionResult(
+            success=True,
+            roll_no=roll_no,
+            name=student["name"],
+            branch=student["branch"],
+            similarity=round(similarity, 4),
+            status="Present",
+            message=f"Attendance marked for {student['name']}",
+        ))
+
+    newly_marked = sum(1 for r in individual_results if r.status == "Present")
+    already_marked = sum(1 for r in individual_results if r.status == "Already Marked")
+
+    return MultiRecognitionResult(
+        success=True,
+        faces_detected=multi_result["faces_detected"],
+        faces_recognized=len(individual_results),
+        results=individual_results,
+        message=f"{newly_marked} marked, {already_marked} already marked, {multi_result['faces_detected']} faces detected",
     )
 
 

@@ -41,3 +41,12 @@ class RecognitionResult(BaseModel):
     similarity: Optional[float] = None
     status: str  # "Present", "Already Marked", "No Match", "No Face Detected"
     message: str
+
+
+class MultiRecognitionResult(BaseModel):
+    success: bool
+    faces_detected: int = 0
+    faces_recognized: int = 0
+    results: list[RecognitionResult] = []
+    message: str
+

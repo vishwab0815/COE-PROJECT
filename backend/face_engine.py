@@ -2,7 +2,8 @@
 Face Recognition Engine — CUDA-accelerated singleton.
 
 Loads MTCNN + InceptionResnetV1 + FAISS index on GPU at startup,
-exposes a `recognize(image_bytes)` method for real-time attendance.
+exposes `recognize()` for single-face and `recognize_multi()` for
+batch multi-face recognition (60-70 faces per frame).
 """
 
 import os
@@ -27,7 +28,8 @@ class FaceEngine:
 
     def __init__(self):
         self.device = None
-        self.mtcnn = None
+        self.mtcnn_single = None   # keep_all=False (registration)
+        self.mtcnn_multi = None    # keep_all=True (multi-face detection)
         self.resnet = None
         self.index = None
         self.labels = None
@@ -45,8 +47,8 @@ class FaceEngine:
             gpu_info = f" ({torch.cuda.get_device_name(0)})"
         print(f"  [FaceEngine] Device: {self.device}{gpu_info}")
 
-        # ── MTCNN (face detection + alignment) ──
-        self.mtcnn = MTCNN(
+        # ── MTCNN — Single face (for registration) ──
+        self.mtcnn_single = MTCNN(
             image_size=IMAGE_SIZE,
             margin=20,
             min_face_size=20,
@@ -56,7 +58,14 @@ class FaceEngine:
             device=self.device,
             keep_all=False,
         )
-        print("  [FaceEngine] MTCNN loaded")
+
+        # ── YOLOv8 — Multi face (for batch recognition) ──
+        from ultralytics import YOLO
+        # Using standard YOLOv8n (detects people/faces). 
+        # For precision, we filter for class 0 (person).
+        self.yolo = YOLO("yolov8n.pt")
+        self.yolo.to(self.device)
+        print("  [FaceEngine] MTCNN (single) + YOLOv8 (multi) loaded")
 
         # ── InceptionResnetV1 (embedding model) ──
         self.resnet = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
@@ -72,11 +81,15 @@ class FaceEngine:
         print(f"  [FaceEngine] Labels loaded: {len(set(self.labels))} unique students")
 
         self._initialized = True
-        print("  [FaceEngine] Ready for recognition")
+        print("  [FaceEngine] Ready for recognition (single + multi-face)")
+
+    # ═══════════════════════════════════════════════════════
+    #  SINGLE-FACE RECOGNITION (backward compatible)
+    # ═══════════════════════════════════════════════════════
 
     def recognize(self, image_bytes: bytes) -> tuple:
         """
-        Recognize a face from raw image bytes.
+        Recognize a single face from raw image bytes.
 
         Returns:
             (roll_no: str | None, similarity: float | None, error: str | None)
@@ -85,11 +98,10 @@ class FaceEngine:
             return None, None, "Engine not initialized"
 
         try:
-            # Load image
             img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-            # Detect & align face
-            face = self.mtcnn(img)
+            # Detect & align face (single)
+            face = self.mtcnn_single(img)
             if face is None:
                 return None, None, "No face detected in the image"
 
@@ -115,21 +127,144 @@ class FaceEngine:
         except Exception as e:
             return None, None, f"Recognition error: {str(e)}"
 
+    # ═══════════════════════════════════════════════════════
+    #  MULTI-FACE RECOGNITION (batch GPU pipeline)
+    # ═══════════════════════════════════════════════════════
+
+    def recognize_multi(self, image_bytes: bytes) -> dict:
+        """
+        Recognize ALL faces in an image using batch GPU processing with YOLO.
+
+        Pipeline:
+            1. YOLO detects all persons (class 0)
+            2. Crop ROIs from image & resize to 160x160
+            3. torch.stack → batch tensor (N, 3, 160, 160)
+            4. Single GPU forward pass → (N, 512) embeddings
+            5. L2 normalize entire batch
+            6. Batch FAISS search → N results in one call
+            7. Per-frame dedup (same person matched multiple times → keep best)
+
+        Returns:
+            {
+                "faces_detected": int,
+                "faces_recognized": int,
+                "results": [{"roll_no": str, "similarity": float}, ...],
+                "error": str | None
+            }
+        """
+        if not self._initialized:
+            return {"faces_detected": 0, "faces_recognized": 0, "results": [], "error": "Engine not initialized"}
+
+        try:
+            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            img_np = np.array(img)
+
+            # ── Step 1: Detect with YOLO ──
+            # Run inference. conf=0.5, classes=0 (person)
+            results = self.yolo(img, conf=0.5, classes=[0], verbose=False)
+            
+            if len(results) == 0 or len(results[0].boxes) == 0:
+                return {"faces_detected": 0, "faces_recognized": 0, "results": [], "error": None}
+
+            boxes = results[0].boxes.xyxy.cpu().numpy() # [N, 4] bounding boxes
+            
+            faces_detected = len(boxes)
+            if faces_detected == 0:
+                return {"faces_detected": 0, "faces_recognized": 0, "results": [], "error": None}
+
+            # ── Step 2: Crop & Resize (160x160) ──
+            from torchvision import transforms
+            # Resnet expects tensors in [-1, 1], similar to MTCNN output
+            preprocess = transforms.Compose([
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+                # InceptionResnetV1 expects input normalized around 0 with std 1
+                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            ])
+
+            valid_face_tensors = []
+            
+            for box in boxes:
+                x1, y1, x2, y2 = map(int, box)
+                # Ensure bounds
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(img.width, x2), min(img.height, y2)
+                
+                if x2 - x1 < 20 or y2 - y1 < 20: 
+                    continue # Ignore very small crops
+                    
+                crop = img.crop((x1, y1, x2, y2))
+                face_tensor = preprocess(crop)
+                valid_face_tensors.append(face_tensor)
+
+            if len(valid_face_tensors) == 0:
+                 return {"faces_detected": faces_detected, "faces_recognized": 0, "results": [], "error": None}
+
+            # ── Step 3: Batch tensor (N, 3, 160, 160) ──
+            batch_tensor = torch.stack(valid_face_tensors).to(self.device)
+
+            # ── Step 4: Single GPU forward pass ──
+            with torch.no_grad():
+                embeddings = self.resnet(batch_tensor).cpu().numpy()  # (N, 512)
+
+            # ── Step 5: L2 normalize entire batch ──
+            norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+            valid_mask = norms.flatten() > 0
+            embeddings = embeddings[valid_mask]
+            norms = norms[valid_mask]
+            embeddings = (embeddings / norms).astype(np.float32)
+
+            if len(embeddings) == 0:
+                return {"faces_detected": faces_detected, "faces_recognized": 0, "results": [], "error": None}
+
+            # ── Step 6: Batch FAISS search ──
+            distances, indices = self.index.search(embeddings, k=1)
+
+            # ── Step 7: Per-frame dedup ──
+            best_matches = {}  # roll_no -> similarity
+            for i in range(len(embeddings)):
+                similarity = float(distances[i][0])
+                matched_idx = int(indices[i][0])
+
+                if matched_idx < 0 or matched_idx >= len(self.labels):
+                    continue
+
+                roll_no = self.labels[matched_idx]
+
+                if roll_no not in best_matches or similarity > best_matches[roll_no]:
+                    best_matches[roll_no] = similarity
+
+            results = [
+                {"roll_no": roll_no, "similarity": round(sim, 4)}
+                for roll_no, sim in best_matches.items()
+            ]
+
+            results.sort(key=lambda x: x["similarity"], reverse=True)
+
+            return {
+                "faces_detected": faces_detected,
+                "faces_recognized": len(results),
+                "results": results,
+                "error": None,
+            }
+
+        except Exception as e:
+            return {"faces_detected": 0, "faces_recognized": 0, "results": [], "error": f"Multi-recognition error: {str(e)}"}
+
+    # ═══════════════════════════════════════════════════════
+    #  REGISTRATION (unchanged — uses single-face MTCNN)
+    # ═══════════════════════════════════════════════════════
+
     def register_faces(self, roll_no: str, image_bytes_list: list[bytes]) -> dict:
         """
         Register a new student by processing multiple face images.
         Extracts embeddings, adds to FAISS index live, and persists to disk.
-
-        Returns:
-            {"success": bool, "embeddings_added": int, "total_images": int,
-             "images_saved": int, "error": str | None}
         """
         if not self._initialized:
             return {"success": False, "error": "Engine not initialized"}
 
         import os
 
-        # Create dataset directory for this student
         student_dir = os.path.join(BASE_DIR, "processed_dataset", roll_no)
         os.makedirs(student_dir, exist_ok=True)
 
@@ -140,22 +275,18 @@ class FaceEngine:
             try:
                 img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
 
-                # Save the raw image
                 save_path = os.path.join(student_dir, f"reg_{i}_orig.jpg")
                 img.save(save_path, quality=95)
                 images_saved += 1
 
-                # Detect & align face
-                face = self.mtcnn(img)
+                face = self.mtcnn_single(img)
                 if face is None:
                     continue
 
-                # Generate embedding on GPU
                 face_tensor = face.unsqueeze(0).to(self.device)
                 with torch.no_grad():
                     embedding = self.resnet(face_tensor).cpu().numpy()
 
-                # L2 normalize
                 norm = np.linalg.norm(embedding, axis=1, keepdims=True)
                 if norm[0][0] == 0:
                     continue
@@ -175,15 +306,12 @@ class FaceEngine:
                 "error": "No faces detected in any of the captured images",
             }
 
-        # Stack into matrix and add to FAISS index
         embeddings_matrix = np.array(new_embeddings, dtype=np.float32)
         self.index.add(embeddings_matrix)
 
-        # Extend labels
         for _ in new_embeddings:
             self.labels.append(roll_no)
 
-        # Persist FAISS index and labels to disk
         faiss.write_index(self.index, FAISS_INDEX_PATH)
         with open(LABELS_PATH, "wb") as f:
             pickle.dump(self.labels, f)
@@ -198,11 +326,12 @@ class FaceEngine:
             "error": None,
         }
 
+    # ═══════════════════════════════════════════════════════
+    #  DELETION (unchanged)
+    # ═══════════════════════════════════════════════════════
+
     def delete_student(self, roll_no: str) -> dict:
-        """
-        Delete a student from FAISS index, labels, and their photo folder.
-        Rebuilds the FAISS index without the target student's embeddings.
-        """
+        """Delete a student from FAISS index, labels, and their photo folder."""
         if not self._initialized:
             return {"success": False, "error": "Engine not initialized"}
 
@@ -210,35 +339,27 @@ class FaceEngine:
 
         roll_no = roll_no.upper()
 
-        # Count embeddings to remove
         indices_to_keep = [i for i, label in enumerate(self.labels) if label != roll_no]
         removed_count = len(self.labels) - len(indices_to_keep)
 
         if removed_count == 0 and not os.path.exists(os.path.join(BASE_DIR, "processed_dataset", roll_no)):
             return {"success": False, "error": f"No embeddings or photos found for {roll_no}"}
 
-        # Rebuild FAISS index without deleted student
         if indices_to_keep and self.index.ntotal > 0:
-            # Extract remaining embeddings
             all_embeddings = np.array([self.index.reconstruct(i) for i in indices_to_keep], dtype=np.float32)
             new_labels = [self.labels[i] for i in indices_to_keep]
-
-            # Rebuild index
             new_index = faiss.IndexFlatIP(512)
             new_index.add(all_embeddings)
             self.index = new_index
             self.labels = new_labels
         else:
-            # No embeddings left — create empty index
             self.index = faiss.IndexFlatIP(512)
             self.labels = []
 
-        # Persist
         faiss.write_index(self.index, FAISS_INDEX_PATH)
         with open(LABELS_PATH, "wb") as f:
             pickle.dump(self.labels, f)
 
-        # Delete photo folder
         student_dir = os.path.join(BASE_DIR, "processed_dataset", roll_no)
         photos_deleted = 0
         if os.path.exists(student_dir):

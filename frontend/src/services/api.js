@@ -48,6 +48,18 @@ export const api = {
         return res.json();
     },
 
+    markAttendanceMulti: async (imageBlob) => {
+        const formData = new FormData();
+        formData.append('file', imageBlob, 'capture.jpg');
+
+        const res = await fetch(`${API_BASE}/mark-attendance-multi`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        return res.json();
+    },
+
     registerWithFace: async (studentInfo, imageBlobs) => {
         const formData = new FormData();
         formData.append('roll_no', studentInfo.roll_no);
