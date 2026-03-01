@@ -82,6 +82,12 @@ export const api = {
         return res.json();
     },
 
+    pauseStream: () => request('/stream/pause', { method: 'POST', keepalive: true }).then(r => r.json()),
+
+    resumeStream: () => request('/stream/resume', { method: 'POST', keepalive: true }).then(r => r.json()),
+
+    getRecentMarked: () => request('/recent-marked').then(r => r.json()),
+
     getShiftConfig: () => request('/shift-config').then(r => r.json()),
 
     updateShiftConfig: (data) =>

@@ -1,8 +1,8 @@
 import urllib.request
 import os
 
-url = "https://github.com/lindevs/yolov8-face/releases/download/v0.0.0/yolov8s-face-lindevs.pt"
-filename = "yolov8s-face.pt"
+url = "https://github.com/lindevs/yolov8-face/releases/download/v0.0.0/yolov8n-face.pt"
+filename = "yolov8n-face.pt"
 
 print(f"Downloading {filename} from {url}...")
 urllib.request.urlretrieve(url, filename)

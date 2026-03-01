@@ -16,7 +16,7 @@ from PIL import Image
 from facenet_pytorch import MTCNN, InceptionResnetV1
 
 # Base directory (attendance_ai/)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 FAISS_INDEX_PATH = os.path.join(BASE_DIR, "student_index.faiss")
 LABELS_PATH = os.path.join(BASE_DIR, "labels.pkl")
 
@@ -50,7 +50,8 @@ class FaceEngine:
         # ── YOLOv8 — Multi face (for batch recognition) ──
         from ultralytics import YOLO
         # Using custom yolov8n-face (detects only faces, high precision). 
-        self.yolo = YOLO("yolov8n-face.pt")
+        yolo_path = os.path.join(BASE_DIR, "yolov8n-face.pt")
+        self.yolo = YOLO(yolo_path)
         self.yolo.to(self.device)
         print("  [FaceEngine] MTCNN (single) + YOLOv8 (multi) loaded")
 

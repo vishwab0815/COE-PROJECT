@@ -53,7 +53,7 @@ export default function AttendancePage() {
 
             <div className="page-body">
                 {/* Filters */}
-                <div className="filter-bar fade-in">
+                <div className="filter-bar fade-in" style={{ position: 'relative', zIndex: 10 }}>
                     <DatePicker value={date} onChange={setDate} />
 
                     <select
@@ -94,8 +94,8 @@ export default function AttendancePage() {
                 {loading ? (
                     <div className="loading-center"><div className="spinner" /></div>
                 ) : (
-                    <div className="card fade-in" style={{ padding: 0, overflow: 'hidden' }}>
-                        <div className="table-wrapper">
+                    <div className="card fade-in" style={{ padding: 0, overflow: 'visible', position: 'relative', zIndex: 1 }}>
+                        <div className="table-wrapper" style={{ overflowX: 'auto', overflowY: 'visible' }}>
                             <table>
                                 <thead>
                                     <tr>

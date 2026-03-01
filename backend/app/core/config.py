@@ -6,8 +6,8 @@ import os
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# Load .env from the attendance_ai root (one level up from backend/)
-_env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+# Load .env from the attendance_ai root (four levels up from backend/app/core/)
+_env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), ".env")
 load_dotenv(_env_path)
 
 

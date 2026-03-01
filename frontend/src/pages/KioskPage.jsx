@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Scan, Clock } from 'lucide-react';
+import { api } from '../services/api';
 
 export default function KioskPage() {
     const navigate = useNavigate();
@@ -11,19 +12,19 @@ export default function KioskPage() {
 
     useEffect(() => {
         // Ensure backend stream is not paused from the registration page
-        fetch('http://localhost:8000/stream/resume', { method: 'POST' })
+        api.resumeStream()
             .catch(err => console.log('Failed to resume stream', err))
             .finally(() => {
                 // Bypass browser caching to force a fresh MJPEG stream pipeline
-                setStreamUrl(`http://localhost:8000/video-feed?t=${Date.now()}`);
+                const baseUrl = import.meta.env.VITE_API_URL || '/api';
+                setStreamUrl(`${baseUrl}/video-feed?t=${Date.now()}`);
             });
 
         // Setup live polling for recent attendance marks
         let lastCheck = Date.now() / 1000;
         const pollInterval = setInterval(async () => {
             try {
-                const res = await fetch('http://localhost:8000/recent-marked');
-                const data = await res.json();
+                const data = await api.getRecentMarked();
 
                 if (data.recent && Array.isArray(data.recent)) {
                     // Filter marks that are completely brand new
@@ -53,7 +54,13 @@ export default function KioskPage() {
             }
         }, 1500);
 
-        return () => clearInterval(pollInterval);
+        return () => {
+            clearInterval(pollInterval);
+            // MUST release hardware camera when component unmounts to prevent locking
+            // Utilize sendBeacon because browser unmounts often cancel standard async fetches
+            const baseUrl = import.meta.env.VITE_API_URL || '/api';
+            navigator.sendBeacon(`${baseUrl}/stream/pause`);
+        };
     }, []);
 
     return (

@@ -88,20 +88,24 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <div className="page-body">
+            <div className="page-body" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <StatCards stats={stats} />
 
                 {/* Two Column Layout */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 24, height: 'calc(100vh - 270px)', minHeight: 400, marginTop: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 24, flex: 1, minHeight: 0, marginTop: 24 }}>
 
                     {/* Left Column Container */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minHeight: 0 }}>
-                        <BranchBreakdown stats={stats} />
-                        <ShiftSettings
-                            shiftConfig={shiftConfig}
-                            setShiftConfig={setShiftConfig}
-                            handleConfigSave={handleConfigSave}
-                        />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minHeight: 0, height: '100%' }}>
+                        <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                            <BranchBreakdown stats={stats} />
+                        </div>
+                        <div style={{ flexShrink: 0 }}>
+                            <ShiftSettings
+                                shiftConfig={shiftConfig}
+                                setShiftConfig={setShiftConfig}
+                                handleConfigSave={handleConfigSave}
+                            />
+                        </div>
                     </div>
 
                     <ActivityFeed recentLogs={recentLogs} />
