@@ -3,19 +3,67 @@ Attendance routes — POST /mark-attendance, GET /attendance-report
 """
 
 import io
+import time
+import asyncio
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
 from typing import Optional
-from ..database import get_db
-from ..face_engine import engine
-from ..config import settings
-from ..models import RecognitionResult, MultiRecognitionResult, AttendanceRecord
+from app.core.database import get_db
+from app.services.face_engine import engine
+from app.core.config import settings
+from app.services.stream_manager import streamer
+from app.models.models import RecognitionResult, MultiRecognitionResult, AttendanceRecord, ShiftConfig
+
+# --- Global Tracking Buffer ---
+track_buffer = {}
+BUFFER_TIMEOUT = 15.0 # seconds before purging
+REQUIRED_HITS = 2
+# ------------------------------
+
+# Live notifications for the frontend toaster
+recent_marks = []
 
 router = APIRouter(tags=["Attendance"])
 
 # IST timezone
 IST = timezone(timedelta(hours=5, minutes=30))
+
+async def generate_video_stream():
+    """Generator for streaming live MJPEG over HTTP."""
+    while True:
+        frame_bytes = streamer.get_frame_jpeg()
+        if frame_bytes:
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        await asyncio.sleep(0.03)  # ~30fps
+
+@router.get("/video-feed")
+async def video_feed():
+    """SSE endpoint for Real-Time YOLO Tracking Video Feed."""
+    return StreamingResponse(generate_video_stream(), media_type="multipart/x-mixed-replace; boundary=frame")
+
+
+@router.get("/shift-config", response_model=ShiftConfig)
+async def get_shift_config():
+    """Get the current dynamic shift login/logout boundaries."""
+    db = get_db()
+    config = await db.settings.find_one({"_id": "global_config"})
+    if config:
+        return ShiftConfig(login_time=config.get("login_time", "09:30:00"), logout_time=config.get("logout_time", "16:30:00"))
+    return ShiftConfig(login_time=getattr(settings, "LOGIN_TIME", "09:30:00"), logout_time=getattr(settings, "LOGOUT_TIME", "16:30:00"))
+
+
+@router.post("/shift-config")
+async def update_shift_config(config: ShiftConfig):
+    """Update global shift settings instantly without rebooting server."""
+    db = get_db()
+    await db.settings.update_one(
+        {"_id": "global_config"},
+        {"$set": {"login_time": config.login_time, "logout_time": config.logout_time}},
+        upsert=True
+    )
+    return {"message": "Shift configuration updated successfully!"}
 
 
 @router.post("/mark-attendance", response_model=RecognitionResult)
@@ -78,25 +126,43 @@ async def mark_attendance(file: UploadFile = File(..., description="Image file w
         "date": today_date,
     })
 
+    # Fetch dynamic settings
+    config_doc = await db.settings.find_one({"_id": "global_config"})
+    sys_login = config_doc["login_time"] if config_doc and "login_time" in config_doc else getattr(settings, "LOGIN_TIME", "09:30:00")
+    sys_logout = config_doc["logout_time"] if config_doc and "logout_time" in config_doc else getattr(settings, "LOGOUT_TIME", "16:30:00")
+
     if existing:
+        # LOGOUT
+        logout_thresh = datetime.strptime(today_date + " " + sys_logout, "%Y-%m-%d %H:%M:%S").replace(tzinfo=IST)
+        status = "Logged Out" if now >= logout_thresh else "Early Logout"
+        
+        await db.attendance.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {"logout_time": current_time, "logout_status": status}}
+        )
         return RecognitionResult(
             success=True,
             roll_no=roll_no,
             name=student["name"],
             branch=student["branch"],
             similarity=round(similarity, 4),
-            status="Already Marked",
-            message=f"Attendance already marked for {student['name']} ({roll_no}) at {existing['time']}",
+            status=status,
+            message=f"Attendance updated for {student['name']} ({status})",
         )
 
-    # Log attendance
+    # LOGIN
+    login_thresh = datetime.strptime(today_date + " " + sys_login, "%Y-%m-%d %H:%M:%S").replace(tzinfo=IST)
+    status = "On Time" if now <= login_thresh else "Late"
+
     attendance_doc = {
         "roll_no": roll_no,
         "name": student["name"],
         "branch": student["branch"],
         "date": today_date,
-        "time": current_time,
-        "status": "Present",
+        "login_time": current_time,
+        "login_status": status,
+        "logout_time": None,
+        "logout_status": None,
     }
     await db.attendance.insert_one(attendance_doc)
 
@@ -106,8 +172,8 @@ async def mark_attendance(file: UploadFile = File(..., description="Image file w
         name=student["name"],
         branch=student["branch"],
         similarity=round(similarity, 4),
-        status="Present",
-        message=f"Attendance marked for {student['name']} ({roll_no})",
+        status=status,
+        message=f"Attendance marked for {student['name']} ({status})",
     )
 
 
@@ -148,18 +214,46 @@ async def mark_attendance_multi(file: UploadFile = File(..., description="Image 
 
     # Process each recognized face
     db = get_db()
+    
+    # Fetch dynamic settings
+    config_doc = await db.settings.find_one({"_id": "global_config"})
+    sys_login = config_doc["login_time"] if config_doc and "login_time" in config_doc else getattr(settings, "LOGIN_TIME", "09:30:00")
+    sys_logout = config_doc["logout_time"] if config_doc and "logout_time" in config_doc else getattr(settings, "LOGOUT_TIME", "16:30:00")
+
     now = datetime.now(IST)
     today_date = now.strftime("%Y-%m-%d")
     current_time = now.strftime("%H:%M:%S")
 
     individual_results = []
 
+    # Clean up old tracks
+    now_ts = time.time()
+    expired = [k for k, v in track_buffer.items() if now_ts - v["last_seen"] > BUFFER_TIMEOUT]
+    for k in expired:
+        del track_buffer[k]
+
     for match in multi_result["results"]:
         roll_no = match["roll_no"]
         similarity = match["similarity"]
 
-        # Check threshold
-        if similarity < settings.SIMILARITY_THRESHOLD:
+        # 1. Update similarity buffer
+        if roll_no not in track_buffer:
+            track_buffer[roll_no] = {"similarities": [], "last_seen": now_ts}
+            
+        track_buffer[roll_no]["similarities"].append(similarity)
+        track_buffer[roll_no]["last_seen"] = now_ts
+        
+        # Keep only the latest `REQUIRED_HITS` frames
+        if len(track_buffer[roll_no]["similarities"]) > REQUIRED_HITS:
+            track_buffer[roll_no]["similarities"].pop(0)
+
+        # 2. Check if we have enough hits
+        if len(track_buffer[roll_no]["similarities"]) < REQUIRED_HITS:
+            continue # Need more frames to confirm identity
+
+        # 3. Check if average similarity meets threshold
+        avg_sim = sum(track_buffer[roll_no]["similarities"]) / len(track_buffer[roll_no]["similarities"])
+        if avg_sim < settings.SIMILARITY_THRESHOLD:
             continue
 
         # Lookup student
@@ -171,25 +265,39 @@ async def mark_attendance_multi(file: UploadFile = File(..., description="Image 
         existing = await db.attendance.find_one({"roll_no": roll_no, "date": today_date})
 
         if existing:
+            # LOGOUT
+            logout_thresh = datetime.strptime(today_date + " " + sys_logout, "%Y-%m-%d %H:%M:%S").replace(tzinfo=IST)
+            status = "Logged Out" if now >= logout_thresh else "Early Logout"
+            
+            await db.attendance.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"logout_time": current_time, "logout_status": status}}
+            )
+            
             individual_results.append(RecognitionResult(
                 success=True,
                 roll_no=roll_no,
                 name=student["name"],
                 branch=student["branch"],
                 similarity=round(similarity, 4),
-                status="Already Marked",
-                message=f"Already marked at {existing['time']}",
+                status=status,
+                message=f"{student['name']} {status} at {current_time}",
             ))
             continue
 
-        # Mark attendance
+        # LOGIN
+        login_thresh = datetime.strptime(today_date + " " + sys_login, "%Y-%m-%d %H:%M:%S").replace(tzinfo=IST)
+        status = "On Time" if now <= login_thresh else "Late"
+        
         await db.attendance.insert_one({
             "roll_no": roll_no,
             "name": student["name"],
             "branch": student["branch"],
             "date": today_date,
-            "time": current_time,
-            "status": "Present",
+            "login_time": current_time,
+            "login_status": status,
+            "logout_time": None,
+            "logout_status": None,
         })
 
         individual_results.append(RecognitionResult(
@@ -198,8 +306,8 @@ async def mark_attendance_multi(file: UploadFile = File(..., description="Image 
             name=student["name"],
             branch=student["branch"],
             similarity=round(similarity, 4),
-            status="Present",
-            message=f"Attendance marked for {student['name']}",
+            status=status,
+            message=f"{student['name']} Logged In ({status})",
         ))
 
     newly_marked = sum(1 for r in individual_results if r.status == "Present")
@@ -212,6 +320,21 @@ async def mark_attendance_multi(file: UploadFile = File(..., description="Image 
         results=individual_results,
         message=f"{newly_marked} marked, {already_marked} already marked, {multi_result['faces_detected']} faces detected",
     )
+
+
+@router.post("/stream/pause")
+async def pause_stream():
+    """Temporarily halts the background CCTV Stream to release hardware camera."""
+    from app.services.stream_manager import streamer
+    streamer.pause()
+    return {"message": "Background stream paused. Camera released."}
+
+@router.post("/stream/resume")
+async def resume_stream():
+    """Resumes the background CCTV Stream hardware camera."""
+    from app.services.stream_manager import streamer
+    streamer.resume()
+    return {"message": "Background stream resumed."}
 
 
 @router.get("/attendance-report", response_model=list[AttendanceRecord])
@@ -235,7 +358,7 @@ async def get_attendance_report(
 
     cursor = (
         db.attendance.find(query, {"_id": 0})
-        .sort([("date", -1), ("time", -1)])
+        .sort([("date", -1), ("login_time", -1)])
         .skip(skip)
         .limit(limit)
     )
@@ -257,13 +380,13 @@ async def export_attendance_csv(
     if branch:
         query["branch"] = branch.upper()
 
-    cursor = db.attendance.find(query, {"_id": 0}).sort([("date", -1), ("time", -1)])
+    cursor = db.attendance.find(query, {"_id": 0}).sort([("date", -1), ("login_time", -1)])
     records = await cursor.to_list(length=10000)
 
     # Build CSV
-    lines = ["Roll No,Name,Branch,Date,Time,Status"]
+    lines = ["Roll No,Name,Branch,Date,Login Time,Login Status,Logout Time,Logout Status"]
     for r in records:
-        lines.append(f"{r['roll_no']},{r['name']},{r['branch']},{r['date']},{r['time']},{r['status']}")
+        lines.append(f"{r['roll_no']},{r['name']},{r['branch']},{r['date']},{r.get('login_time', '')},{r.get('login_status', '')},{r.get('logout_time', '')},{r.get('logout_status', '')}")
 
     csv_content = "\n".join(lines)
     filename = f"attendance_report_{date or 'all'}.csv"
@@ -336,3 +459,9 @@ async def get_attendance_stats(
         "percentage": round(present_count / total_students * 100, 1) if total_students > 0 else 0,
         "branch_breakdown": branch_breakdown,
     }
+
+@router.get("/recent-marked")
+async def get_recent_marked():
+    """Endpoint for the frontend to poll for live toast notifications."""
+    # Return the last 10 marks
+    return {"recent": recent_marks[-10:]}

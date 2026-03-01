@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 async function request(path, options = {}) {
     const res = await fetch(`${API_BASE}${path}`, {
@@ -81,6 +81,14 @@ export const api = {
 
         return res.json();
     },
+
+    getShiftConfig: () => request('/shift-config').then(r => r.json()),
+
+    updateShiftConfig: (data) =>
+        request('/shift-config', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }).then(r => r.json()),
 
     getAttendanceReport: (params = {}) => {
         const q = new URLSearchParams(params).toString();

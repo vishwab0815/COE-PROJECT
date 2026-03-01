@@ -4,9 +4,9 @@ Seed the students collection from metadata.csv (idempotent via upsert).
 
 import os
 import pandas as pd
-from .database import get_db
+from app.core.database import get_db
 
-METADATA_CSV = os.path.join(os.path.dirname(os.path.dirname(__file__)), "metadata.csv")
+METADATA_CSV = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "metadata.csv")
 
 
 async def seed_students():

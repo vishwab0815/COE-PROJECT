@@ -10,6 +10,7 @@ const CAPTURE_INTERVAL_MS = 300;
 export default function RegisterPage() {
     const navigate = useNavigate();
     const webcamRef = useRef(null);
+
     const [rollNo, setRollNo] = useState('');
     const [name, setName] = useState('');
     const [branch, setBranch] = useState('CSE');
@@ -18,6 +19,25 @@ export default function RegisterPage() {
     const [capturedCount, setCapturedCount] = useState(0);
     const [capturedImages, setCapturedImages] = useState([]);
     const [result, setResult] = useState(null);
+    const [cameraReady, setCameraReady] = useState(false);
+
+    // Grab exclusive access to the camera by pausing the backend stream
+    useEffect(() => {
+        let isMounted = true;
+        fetch('http://localhost:8000/api/attendance/stream/pause', { method: 'POST' })
+            .then(() => { if (isMounted) setCameraReady(true); })
+            .catch(err => {
+                console.log('Failed to pause background stream', err);
+                // Fallback to true in case the backend is down so the UI doesn't hang indefinitely
+                if (isMounted) setCameraReady(true);
+            });
+
+        return () => {
+            isMounted = false;
+            fetch('http://localhost:8000/api/attendance/stream/resume', { method: 'POST' })
+                .catch(err => console.log('Failed to resume background stream', err));
+        };
+    }, []);
 
     const startCapture = () => {
         if (!rollNo.trim() || !name.trim()) return;
@@ -30,6 +50,8 @@ export default function RegisterPage() {
         const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
         return () => clearTimeout(timer);
     }, [phase, countdown]);
+
+
 
     useEffect(() => {
         if (phase !== 'capturing') return;
@@ -66,9 +88,16 @@ export default function RegisterPage() {
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
                 <div style={{ flex: 1, position: 'relative', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-                        <Webcam ref={webcamRef} audio={false} screenshotFormat="image/jpeg" screenshotQuality={0.92}
-                            videoConstraints={{ width: 1280, height: 720, facingMode: 'user' }}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        {cameraReady ? (
+                            <Webcam ref={webcamRef} audio={false} screenshotFormat="image/jpeg" screenshotQuality={0.92}
+                                videoConstraints={{ width: 1280, height: 720, facingMode: 'user' }}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : (
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#e2e8f0' }}>
+                                <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3, marginBottom: 16, borderColor: 'var(--accent-primary) transparent transparent transparent' }}></div>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' }}>Acquiring Camera...</span>
+                            </div>
+                        )}
 
                         {/* Face guide */}
                         <div style={{

@@ -16,7 +16,7 @@ from PIL import Image
 from facenet_pytorch import MTCNN, InceptionResnetV1
 
 # Base directory (attendance_ai/)
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 FAISS_INDEX_PATH = os.path.join(BASE_DIR, "student_index.faiss")
 LABELS_PATH = os.path.join(BASE_DIR, "labels.pkl")
 
@@ -47,29 +47,16 @@ class FaceEngine:
             gpu_info = f" ({torch.cuda.get_device_name(0)})"
         print(f"  [FaceEngine] Device: {self.device}{gpu_info}")
 
-        # ── MTCNN — Single face (for registration) ──
-        self.mtcnn_single = MTCNN(
-            image_size=IMAGE_SIZE,
-            margin=20,
-            min_face_size=20,
-            thresholds=[0.6, 0.7, 0.7],
-            factor=0.709,
-            post_process=True,
-            device=self.device,
-            keep_all=False,
-        )
-
         # ── YOLOv8 — Multi face (for batch recognition) ──
         from ultralytics import YOLO
-        # Using standard YOLOv8n (detects people/faces). 
-        # For precision, we filter for class 0 (person).
-        self.yolo = YOLO("yolov8n.pt")
+        # Using custom yolov8n-face (detects only faces, high precision). 
+        self.yolo = YOLO("yolov8n-face.pt")
         self.yolo.to(self.device)
         print("  [FaceEngine] MTCNN (single) + YOLOv8 (multi) loaded")
 
         # ── InceptionResnetV1 (embedding model) ──
-        self.resnet = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
-        print("  [FaceEngine] InceptionResnetV1 loaded (vggface2)")
+        self.resnet = InceptionResnetV1(pretrained="vggface2").eval().half().to(self.device)
+        print("  [FaceEngine] InceptionResnetV1 loaded (vggface2, FP16)")
 
         # ── FAISS index ──
         self.index = faiss.read_index(FAISS_INDEX_PATH)
@@ -100,15 +87,37 @@ class FaceEngine:
         try:
             img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-            # Detect & align face (single)
-            face = self.mtcnn_single(img)
-            if face is None:
+            # Detect face with YOLO
+            results = self.yolo(img, conf=0.5, verbose=False)
+            if len(results) == 0 or len(results[0].boxes) == 0:
                 return None, None, "No face detected in the image"
 
-            # Generate embedding on GPU
-            face_tensor = face.unsqueeze(0).to(self.device)
+            # Take the largest/first face
+            box = results[0].boxes.xyxy[0].cpu().numpy()
+            x1, y1, x2, y2 = map(int, box)
+
+            # Add tight padding (10%)
+            w, h = x2 - x1, y2 - y1
+            padx, pady = int(w * 0.1), int(h * 0.1)
+            x1 = max(0, x1 - padx)
+            y1 = max(0, y1 - pady)
+            x2 = min(img.width, x2 + padx)
+            y2 = min(img.height, y2 + pady)
+
+            crop = img.crop((x1, y1, x2, y2))
+            
+            from torchvision import transforms
+            preprocess = transforms.Compose([
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            ])
+            face_tensor = preprocess(crop)
+
+            # Generate embedding on GPU (FP16)
+            face_tensor = face_tensor.unsqueeze(0).to(self.device).half()
             with torch.no_grad():
-                embedding = self.resnet(face_tensor).cpu().numpy()
+                embedding = self.resnet(face_tensor).float().cpu().numpy()
 
             # L2 normalize
             norm = np.linalg.norm(embedding, axis=1, keepdims=True)
@@ -159,9 +168,9 @@ class FaceEngine:
             img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
             img_np = np.array(img)
 
-            # ── Step 1: Detect with YOLO ──
-            # Run inference. conf=0.5, classes=0 (person)
-            results = self.yolo(img, conf=0.5, classes=[0], verbose=False)
+            # ── Step 1: Detect with YOLO-Face ──
+            # Run inference. conf=0.5
+            results = self.yolo(img, conf=0.5, verbose=False)
             
             if len(results) == 0 or len(results[0].boxes) == 0:
                 return {"faces_detected": 0, "faces_recognized": 0, "results": [], "error": None}
@@ -190,9 +199,14 @@ class FaceEngine:
                 x1, y1 = max(0, x1), max(0, y1)
                 x2, y2 = min(img.width, x2), min(img.height, y2)
                 
-                if x2 - x1 < 20 or y2 - y1 < 20: 
-                    continue # Ignore very small crops
-                    
+                # Add tight padding (10%)
+                w, h = x2 - x1, y2 - y1
+                padx, pady = int(w * 0.1), int(h * 0.1)
+                x1 = max(0, x1 - padx)
+                y1 = max(0, y1 - pady)
+                x2 = min(img.width, x2 + padx)
+                y2 = min(img.height, y2 + pady)
+                
                 crop = img.crop((x1, y1, x2, y2))
                 face_tensor = preprocess(crop)
                 valid_face_tensors.append(face_tensor)
@@ -200,12 +214,12 @@ class FaceEngine:
             if len(valid_face_tensors) == 0:
                  return {"faces_detected": faces_detected, "faces_recognized": 0, "results": [], "error": None}
 
-            # ── Step 3: Batch tensor (N, 3, 160, 160) ──
-            batch_tensor = torch.stack(valid_face_tensors).to(self.device)
+            # ── Step 3: Batch tensor (N, 3, 160, 160) FP16 ──
+            batch_tensor = torch.stack(valid_face_tensors).to(self.device).half()
 
             # ── Step 4: Single GPU forward pass ──
             with torch.no_grad():
-                embeddings = self.resnet(batch_tensor).cpu().numpy()  # (N, 512)
+                embeddings = self.resnet(batch_tensor).float().cpu().numpy()  # (N, 512)
 
             # ── Step 5: L2 normalize entire batch ──
             norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
@@ -279,13 +293,37 @@ class FaceEngine:
                 img.save(save_path, quality=95)
                 images_saved += 1
 
-                face = self.mtcnn_single(img)
-                if face is None:
+                # Detect face with YOLO
+                results = self.yolo(img, conf=0.5, verbose=False)
+                if len(results) == 0 or len(results[0].boxes) == 0:
                     continue
 
-                face_tensor = face.unsqueeze(0).to(self.device)
+                # Take best face
+                box = results[0].boxes.xyxy[0].cpu().numpy()
+                x1, y1, x2, y2 = map(int, box)
+
+                # Add tight padding (10%)
+                w, h = x2 - x1, y2 - y1
+                padx, pady = int(w * 0.1), int(h * 0.1)
+                x1 = max(0, x1 - padx)
+                y1 = max(0, y1 - pady)
+                x2 = min(img.width, x2 + padx)
+                y2 = min(img.height, y2 + pady)
+
+                crop = img.crop((x1, y1, x2, y2))
+
+                from torchvision import transforms
+                preprocess = transforms.Compose([
+                    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                    transforms.ToTensor(),
+                    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+                ])
+                face_tensor = preprocess(crop)
+
+                # Generate embedding (FP16)
+                face_tensor = face_tensor.unsqueeze(0).to(self.device).half()
                 with torch.no_grad():
-                    embedding = self.resnet(face_tensor).cpu().numpy()
+                    embedding = self.resnet(face_tensor).float().cpu().numpy()
 
                 norm = np.linalg.norm(embedding, axis=1, keepdims=True)
                 if norm[0][0] == 0:
