@@ -23,7 +23,7 @@ if sys.platform == "win32":
 from app.core.database import connect_db, close_db
 from app.services.face_engine import engine
 from app.seed import seed_students
-from app.api.routes import students, attendance
+from app.api.routes import students, attendance, streaming, reports, settings
 from app.services.stream_manager import streamer
 
 
@@ -78,6 +78,9 @@ app.add_middleware(
 # ─── Register routes ─────────────────────────────────────────────────────────
 app.include_router(students.router)
 app.include_router(attendance.router)
+app.include_router(streaming.router)
+app.include_router(reports.router)
+app.include_router(settings.router)
 
 
 @app.get("/", tags=["Health"])
