@@ -5,8 +5,8 @@ Student routes — GET /students, POST /register, POST /register-with-face, DELE
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
 from typing import Optional
 from app.core.database import get_db
-from app.services.face_engine import engine
-from app.models.models import StudentCreate, StudentOut
+from app.services.registrar import register_faces, delete_student as engine_delete
+from app.models.schemas import StudentCreate, StudentOut
 
 router = APIRouter(tags=["Students"])
 
@@ -97,7 +97,7 @@ async def register_with_face(
         raise HTTPException(status_code=400, detail="No images received")
 
     # Process faces on GPU and update FAISS index
-    result = engine.register_faces(roll_no, image_bytes_list)
+    result = register_faces(roll_no, image_bytes_list)
 
     if not result["success"]:
         raise HTTPException(status_code=422, detail=result["error"])
@@ -135,7 +135,7 @@ async def delete_student(roll_no: str):
         raise HTTPException(status_code=404, detail=f"Student {roll_no} not found")
 
     # Delete from FAISS index + photos
-    face_result = engine.delete_student(roll_no)
+    face_result = engine_delete(roll_no)
 
     # Delete from MongoDB
     await db.students.delete_one({"roll_no": roll_no})
