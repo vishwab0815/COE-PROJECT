@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Clock } from 'lucide-react';
+import { Clock, LayoutDashboard } from 'lucide-react';
 import StatCards from '../components/dashboard/StatCards';
 import BranchBreakdown from '../components/dashboard/BranchBreakdown';
 import ShiftSettings from '../components/dashboard/ShiftSettings';
@@ -43,7 +43,6 @@ export default function Dashboard() {
                 login_time: shiftConfig.login_time + ":00",
                 logout_time: shiftConfig.logout_time + ":00"
             });
-            // Visual feedback could be added here
         } catch (err) {
             console.error(err);
         }
@@ -51,7 +50,7 @@ export default function Dashboard() {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 10000); // Refresh every 10s
+        const interval = setInterval(fetchData, 10000);
         const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => {
             clearInterval(interval);
@@ -59,7 +58,9 @@ export default function Dashboard() {
         };
     }, []);
 
-    const timeString = currentTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const timeString = currentTime.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
 
     if (loading) {
         return (
@@ -77,25 +78,75 @@ export default function Dashboard() {
 
     return (
         <>
-            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                    <h2>Dashboard</h2>
-                    <p>Real-time attendance overview — {today}</p>
+            {/* ── Premium Header ── */}
+            <div className="page-header" style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{
+                        width: 44, height: 44, borderRadius: 13,
+                        background: 'var(--gradient-primary)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 4px 14px rgba(13, 148, 136, 0.25)',
+                    }}>
+                        <LayoutDashboard size={22} color="#fff" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>Dashboard</h2>
+                        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>
+                            Real-time attendance overview — {today}
+                        </p>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: 'rgba(255,255,255,0.05)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <Clock size={16} color="var(--accent-primary)" />
-                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16, letterSpacing: '0.05em' }}>{timeString} (IST)</span>
+
+                {/* Live Clock */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '10px 18px',
+                    background: '#fff',
+                    borderRadius: 14,
+                    border: '1px solid var(--border-light)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                }}>
+                    <Clock size={15} color="var(--accent-primary)" strokeWidth={2.5} />
+                    <span style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontWeight: 700, fontSize: 15,
+                        letterSpacing: '0.05em',
+                        color: 'var(--text-primary)',
+                    }}>
+                        {timeString}
+                    </span>
+                    <span style={{
+                        fontSize: 10, fontWeight: 700,
+                        color: '#fff', background: 'var(--gradient-primary)',
+                        padding: '2px 7px', borderRadius: 5,
+                        letterSpacing: '0.04em',
+                    }}>
+                        IST
+                    </span>
                 </div>
             </div>
 
-            <div className="page-body" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* ── Body ── */}
+            <div className="page-body" style={{
+                display: 'flex', flexDirection: 'column',
+                overflow: 'hidden', gap: 20,
+            }}>
+                {/* Stat Cards Row */}
                 <StatCards stats={stats} />
 
                 {/* Two Column Layout */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 20, flex: 1, minHeight: 0, marginTop: 20 }}>
-
-                    {/* Left Column Container */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minHeight: 0, height: '100%' }}>
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1.2fr 1fr',
+                    gap: 20, flex: 1, minHeight: 0,
+                }}>
+                    {/* Left Column — Branch + Shift */}
+                    <div style={{
+                        display: 'flex', flexDirection: 'column',
+                        gap: 16, minHeight: 0, height: '100%',
+                    }}>
                         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                             <BranchBreakdown stats={stats} />
                         </div>
@@ -108,8 +159,8 @@ export default function Dashboard() {
                         </div>
                     </div>
 
+                    {/* Right Column — Activity Feed */}
                     <ActivityFeed recentLogs={recentLogs} />
-
                 </div>
             </div>
         </>
