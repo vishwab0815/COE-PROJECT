@@ -53,7 +53,7 @@ export default function AttendancePage() {
 
             <div className="page-body">
                 {/* Filters */}
-                <div className="filter-bar fade-in">
+                <div className="filter-bar fade-in" style={{ position: 'relative', zIndex: 10 }}>
                     <DatePicker value={date} onChange={setDate} />
 
                     <select
@@ -94,8 +94,8 @@ export default function AttendancePage() {
                 {loading ? (
                     <div className="loading-center"><div className="spinner" /></div>
                 ) : (
-                    <div className="card fade-in" style={{ padding: 0, overflow: 'hidden' }}>
-                        <div className="table-wrapper">
+                    <div className="card fade-in" style={{ padding: 0, overflow: 'visible', position: 'relative', zIndex: 1 }}>
+                        <div className="table-wrapper" style={{ overflowX: 'auto', overflowY: 'visible' }}>
                             <table>
                                 <thead>
                                     <tr>
@@ -104,8 +104,8 @@ export default function AttendancePage() {
                                         <th>Name</th>
                                         <th>Branch</th>
                                         <th>Date</th>
-                                        <th>Time</th>
-                                        <th>Status</th>
+                                        <th>Login</th>
+                                        <th>Logout</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -123,8 +123,22 @@ export default function AttendancePage() {
                                                 <td>{r.name}</td>
                                                 <td><span className="badge branch">{r.branch}</span></td>
                                                 <td>{r.date}</td>
-                                                <td style={{ fontFamily: 'monospace' }}>{r.time}</td>
-                                                <td><span className="badge present">{r.status}</span></td>
+                                                <td>
+                                                    <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>{r.login_time || '--:--:--'}</div>
+                                                    {r.login_status && (
+                                                        <span className="badge" style={{ backgroundColor: r.login_status === 'On Time' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: r.login_status === 'On Time' ? '#10b981' : '#f59e0b', fontSize: 10 }}>
+                                                            {r.login_status}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>{r.logout_time || '--:--:--'}</div>
+                                                    {r.logout_status && (
+                                                        <span className="badge" style={{ backgroundColor: r.logout_status === 'Logged Out' ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)', color: r.logout_status === 'Logged Out' ? '#3b82f6' : '#ef4444', fontSize: 10 }}>
+                                                            {r.logout_status}
+                                                        </span>
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))
                                     )}

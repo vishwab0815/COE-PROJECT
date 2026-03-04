@@ -1,22 +1,35 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Users, UserCheck, UserX, TrendingUp, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
+import StatCards from '../components/dashboard/StatCards';
+import BranchBreakdown from '../components/dashboard/BranchBreakdown';
+import ShiftSettings from '../components/dashboard/ShiftSettings';
+import ActivityFeed from '../components/dashboard/ActivityFeed';
 
 export default function Dashboard() {
     const [stats, setStats] = useState(null);
     const [recentLogs, setRecentLogs] = useState([]);
+    const [shiftConfig, setShiftConfig] = useState({ login_time: "09:30", logout_time: "16:30" });
     const [loading, setLoading] = useState(true);
+    const [currentTime, setCurrentTime] = useState(new Date());
 
     const today = new Date().toISOString().split('T')[0];
 
     const fetchData = async () => {
         try {
-            const [statsData, logs] = await Promise.all([
+            const [statsData, logs, shiftData] = await Promise.all([
                 api.getAttendanceStats({ date: today }),
                 api.getAttendanceReport({ date: today, limit: 10 }),
+                api.getShiftConfig()
             ]);
             setStats(statsData);
             setRecentLogs(logs);
+            if (shiftData) {
+                setShiftConfig({
+                    login_time: shiftData.login_time.substring(0, 5),
+                    logout_time: shiftData.logout_time.substring(0, 5)
+                });
+            }
         } catch (err) {
             console.error('Dashboard fetch error:', err);
         } finally {
@@ -24,11 +37,29 @@ export default function Dashboard() {
         }
     };
 
+    const handleConfigSave = async () => {
+        try {
+            await api.updateShiftConfig({
+                login_time: shiftConfig.login_time + ":00",
+                logout_time: shiftConfig.logout_time + ":00"
+            });
+            // Visual feedback could be added here
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 10000); // Refresh every 10s
-        return () => clearInterval(interval);
+        const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => {
+            clearInterval(interval);
+            clearInterval(clockInterval);
+        };
     }, []);
+
+    const timeString = currentTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     if (loading) {
         return (
@@ -46,92 +77,39 @@ export default function Dashboard() {
 
     return (
         <>
-            <div className="page-header">
-                <h2>Dashboard</h2>
-                <p>Real-time attendance overview — {today}</p>
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h2>Dashboard</h2>
+                    <p>Real-time attendance overview — {today}</p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: 'rgba(255,255,255,0.05)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <Clock size={16} color="var(--accent-primary)" />
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16, letterSpacing: '0.05em' }}>{timeString} (IST)</span>
+                </div>
             </div>
 
-            <div className="page-body">
-                {/* Stat Cards */}
-                <div className="stats-grid fade-in">
-                    <div className="stat-card blue">
-                        <div className="stat-icon"><Users size={20} /></div>
-                        <div className="stat-value">{stats?.total_students || 0}</div>
-                        <div className="stat-label">Total Students</div>
-                    </div>
-
-                    <div className="stat-card green">
-                        <div className="stat-icon"><UserCheck size={20} /></div>
-                        <div className="stat-value">{stats?.present || 0}</div>
-                        <div className="stat-label">Present Today</div>
-                    </div>
-
-                    <div className="stat-card orange">
-                        <div className="stat-icon"><UserX size={20} /></div>
-                        <div className="stat-value">{stats?.absent || 0}</div>
-                        <div className="stat-label">Absent Today</div>
-                    </div>
-
-                    <div className="stat-card purple">
-                        <div className="stat-icon"><TrendingUp size={20} /></div>
-                        <div className="stat-value">{stats?.percentage || 0}%</div>
-                        <div className="stat-label">Attendance Rate</div>
-                    </div>
-                </div>
+            <div className="page-body" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <StatCards stats={stats} />
 
                 {/* Two Column Layout */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-                    {/* Branch Breakdown */}
-                    <div className="card fade-in">
-                        <div className="card-header">
-                            <span className="card-title">Branch Breakdown</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 20, flex: 1, minHeight: 0, marginTop: 20 }}>
+
+                    {/* Left Column Container */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minHeight: 0, height: '100%' }}>
+                        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <BranchBreakdown stats={stats} />
                         </div>
-                        <div className="branch-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                            {stats?.branch_breakdown && Object.entries(stats.branch_breakdown).map(([branch, data]) => (
-                                <div className="branch-card" key={branch}>
-                                    <div className="branch-name">{branch}</div>
-                                    <div className="branch-stat">{data.percentage}%</div>
-                                    <div className="branch-detail">{data.present}/{data.total}</div>
-                                    <div className="progress-bar">
-                                        <div className="progress-fill" style={{ width: `${data.percentage}%` }} />
-                                    </div>
-                                </div>
-                            ))}
+                        <div style={{ flexShrink: 0, position: 'relative', overflow: 'visible', zIndex: 50 }}>
+                            <ShiftSettings
+                                shiftConfig={shiftConfig}
+                                setShiftConfig={setShiftConfig}
+                                handleConfigSave={handleConfigSave}
+                            />
                         </div>
                     </div>
 
-                    {/* Recent Activity */}
-                    <div className="card fade-in">
-                        <div className="card-header">
-                            <span className="card-title">Recent Activity</span>
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                <Clock size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                                Auto-refresh 10s
-                            </span>
-                        </div>
-                        <div className="activity-feed">
-                            {recentLogs.length === 0 ? (
-                                <div className="empty-state">
-                                    <UserCheck size={32} />
-                                    <h3>No attendance today</h3>
-                                    <p>Go to Mark Attendance to start</p>
-                                </div>
-                            ) : (
-                                recentLogs.map((log, i) => (
-                                    <div className="activity-item" key={i}>
-                                        <div className="activity-avatar">
-                                            {log.name?.charAt(0) || '?'}
-                                        </div>
-                                        <div className="activity-info">
-                                            <div className="activity-name">{log.name}</div>
-                                            <div className="activity-detail">{log.roll_no} • {log.branch}</div>
-                                        </div>
-                                        <div className="activity-time">{log.time}</div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
+                    <ActivityFeed recentLogs={recentLogs} />
+
                 </div>
             </div>
         </>

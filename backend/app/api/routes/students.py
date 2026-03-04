@@ -4,9 +4,9 @@ Student routes — GET /students, POST /register, POST /register-with-face, DELE
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
 from typing import Optional
-from ..database import get_db
-from ..face_engine import engine
-from ..models import StudentCreate, StudentOut
+from app.core.database import get_db
+from app.services.face_engine import engine
+from app.models.models import StudentCreate, StudentOut
 
 router = APIRouter(tags=["Students"])
 

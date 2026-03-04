@@ -113,7 +113,7 @@ export default function DatePicker({ value, onChange, style }) {
 
             {open && (
                 <div style={{
-                    position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 1000,
+                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 9999,
                     background: 'rgba(255,255,255,0.92)',
                     backdropFilter: 'blur(24px) saturate(180%)',
                     WebkitBackdropFilter: 'blur(24px) saturate(180%)',

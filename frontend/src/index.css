@@ -325,6 +325,9 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+  z-index: 20;
+  /* Force entire main layout to sit above Sidebar's z-index 10 */
   background: transparent;
 }
 
@@ -669,6 +672,11 @@ input[type="date"] {
   box-shadow: var(--shadow-xs);
 }
 
+/* Force React DatePicker Calendar to float above Sidebar */
+.react-date-picker__calendar {
+  z-index: 9999 !important;
+}
+
 input[type="date"]:hover {
   border-color: var(--accent-primary);
   background: rgba(240, 253, 250, 0.6);
@@ -735,10 +743,93 @@ input[type="date"]::-webkit-datetime-edit-year-field {
 
 input[type="date"]::-webkit-datetime-edit-day-field:focus,
 input[type="date"]::-webkit-datetime-edit-month-field:focus,
-input[type="date"]::-webkit-datetime-edit-year-field:focus {
+input[type="date"]::-webkit-datetime-edit-year-field:focus,
+input[type="time"]::-webkit-datetime-edit-hour-field:focus,
+input[type="time"]::-webkit-datetime-edit-minute-field:focus,
+input[type="time"]::-webkit-datetime-edit-ampm-field:focus {
   background: rgba(13, 148, 136, 0.08);
   color: var(--accent-primary);
   outline: none;
+}
+
+/* ── Custom Time Input ── */
+input[type="time"] {
+  position: relative;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-micro);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  letter-spacing: 0.02em;
+  box-shadow: var(--shadow-xs);
+}
+
+input[type="time"]:hover {
+  border-color: var(--accent-primary);
+  background: rgba(240, 253, 250, 0.6);
+  box-shadow: 0 3px 12px rgba(13, 148, 136, 0.06);
+  transform: translateY(-1px);
+}
+
+input[type="time"]:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.08), 0 4px 16px rgba(13, 148, 136, 0.06);
+  background: #fff;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator {
+  background-color: transparent;
+  color: transparent;
+  cursor: pointer;
+  padding: 6px;
+  margin-left: 6px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  opacity: 1;
+  width: 24px;
+  height: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%230d9488' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z'/%3E%3Cpath d='M12 6V12L16 14'/%3E%3C/svg%3E");
+  background-size: 18px 18px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  background-color: rgba(13, 148, 136, 0.08);
+  /* slight teal hover */
+  transform: scale(1.1);
+}
+
+input[type="time"]::-webkit-datetime-edit {
+  font-family: var(--font);
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 0;
+  letter-spacing: 0.03em;
+}
+
+input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+input[type="time"]::-webkit-datetime-edit-hour-field,
+input[type="time"]::-webkit-datetime-edit-minute-field,
+input[type="time"]::-webkit-datetime-edit-ampm-field {
+  color: var(--text-primary);
+  font-weight: 800;
+  padding: 3px 5px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  font-family: var(--font);
 }
 
 /* ═══════════════════════════════════════════════
@@ -767,6 +858,18 @@ thead th {
   text-align: left;
   border-bottom: 1px solid var(--border-color);
 }
+
+.branch-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.branch-grid {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
 
 tbody td {
   padding: 14px 18px;

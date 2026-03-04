@@ -27,8 +27,10 @@ class AttendanceRecord(BaseModel):
     name: str
     branch: str
     date: str
-    time: str
-    status: str = "Present"
+    login_time: Optional[str] = None
+    login_status: Optional[str] = None
+    logout_time: Optional[str] = None
+    logout_status: Optional[str] = None
 
 
 # ─── Recognition ─────────────────────────────────────────────────────────────
@@ -41,3 +43,18 @@ class RecognitionResult(BaseModel):
     similarity: Optional[float] = None
     status: str  # "Present", "Already Marked", "No Match", "No Face Detected"
     message: str
+
+
+class MultiRecognitionResult(BaseModel):
+    success: bool
+    faces_detected: int = 0
+    faces_recognized: int = 0
+    results: list[RecognitionResult] = []
+    message: str
+
+# ─── Settings ────────────────────────────────────────────────────────────────
+
+class ShiftConfig(BaseModel):
+    login_time: str = Field(..., example="09:30:00")
+    logout_time: str = Field(..., example="16:30:00")
+
