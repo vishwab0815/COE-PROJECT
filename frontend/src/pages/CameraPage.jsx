@@ -49,7 +49,12 @@ export default function CameraPage() {
             }
         }, 1500);
 
-        return () => clearInterval(pollInterval);
+        return () => {
+            clearInterval(pollInterval);
+            // GUARANTEE: Free the hardware backend OpenCV camera when leaving the route
+            const baseUrl = import.meta.env.VITE_API_URL || '/api';
+            navigator.sendBeacon(`${baseUrl}/stream/pause`);
+        };
     }, []);
 
     return (

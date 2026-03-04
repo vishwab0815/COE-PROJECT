@@ -34,10 +34,6 @@ export default function RegisterPage() {
 
         return () => {
             isMounted = false;
-            // Always resume the background Python thread when leaving Registration 
-            // so the dashboard/kiosk stream doesn't stay dead. Usings sendBeacon for guarantee.
-            const baseUrl = import.meta.env.VITE_API_URL || '/api';
-            navigator.sendBeacon(`${baseUrl}/stream/resume`);
         };
     }, []);
 

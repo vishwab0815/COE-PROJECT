@@ -92,14 +92,14 @@ export default function Dashboard() {
                 <StatCards stats={stats} />
 
                 {/* Two Column Layout */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 24, flex: 1, minHeight: 0, marginTop: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 20, flex: 1, minHeight: 0, marginTop: 20 }}>
 
                     {/* Left Column Container */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minHeight: 0, height: '100%' }}>
-                        <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minHeight: 0, height: '100%' }}>
+                        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                             <BranchBreakdown stats={stats} />
                         </div>
-                        <div style={{ flexShrink: 0 }}>
+                        <div style={{ flexShrink: 0, position: 'relative', overflow: 'visible', zIndex: 50 }}>
                             <ShiftSettings
                                 shiftConfig={shiftConfig}
                                 setShiftConfig={setShiftConfig}

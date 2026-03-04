@@ -24,7 +24,7 @@ class StreamManager:
         self.src = src
         self.cap = None
         self.is_running = False
-        self.paused = False
+        self.paused = True
         self.thread = None
         self.current_frame = None
         
@@ -49,12 +49,13 @@ class StreamManager:
         except RuntimeError:
             pass
         
-        if os.name == 'nt':
-            self.cap = cv2.VideoCapture(self.src, cv2.CAP_DSHOW)
-        else:
-            self.cap = cv2.VideoCapture(self.src)
-            
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+        if not self.paused:
+            if os.name == 'nt':
+                self.cap = cv2.VideoCapture(self.src, cv2.CAP_DSHOW)
+            else:
+                self.cap = cv2.VideoCapture(self.src)
+                
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
         
         self.is_running = True
         self.thread = threading.Thread(target=self._update, daemon=True)

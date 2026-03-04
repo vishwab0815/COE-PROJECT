@@ -106,42 +106,43 @@ export default function CustomTimePicker({ value, onChange, label }) {
 
             {isOpen && (
                 <div style={{
-                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0,
-                    background: '#fff', borderRadius: 'var(--radius-md)', padding: '16px',
-                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0,0,0,0.05)',
-                    zIndex: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    animation: 'fadeInUp 0.2s ease-out forwards'
+                    position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, right: 0,
+                    background: 'rgba(255,255,255,0.96)',
+                    backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+                    borderRadius: 'var(--radius-md)', padding: '14px 16px',
+                    boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0,0,0,0.04)',
+                    zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
+                    animation: 'fadeIn 0.15s ease-out forwards'
                 }}>
 
                     {/* Hours */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                        <button onClick={incrementHour} className="time-spin-btn"><ChevronUp size={20} /></button>
-                        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', width: 40, textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                        <button onClick={incrementHour} className="time-spin-btn"><ChevronUp size={18} /></button>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', width: 36, textAlign: 'center' }}>
                             {displayHour.toString().padStart(2, '0')}
                         </div>
-                        <button onClick={decrementHour} className="time-spin-btn"><ChevronDown size={20} /></button>
+                        <button onClick={decrementHour} className="time-spin-btn"><ChevronDown size={18} /></button>
                     </div>
 
-                    <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-muted)', margin: '0 8px', marginTop: '-4px' }}>:</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-muted)' }}>:</div>
 
                     {/* Minutes */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                        <button onClick={incrementMinute} className="time-spin-btn"><ChevronUp size={20} /></button>
-                        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', width: 40, textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                        <button onClick={incrementMinute} className="time-spin-btn"><ChevronUp size={18} /></button>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', width: 36, textAlign: 'center' }}>
                             {minute.toString().padStart(2, '0')}
                         </div>
-                        <button onClick={decrementMinute} className="time-spin-btn"><ChevronDown size={20} /></button>
+                        <button onClick={decrementMinute} className="time-spin-btn"><ChevronDown size={18} /></button>
                     </div>
 
                     {/* AM/PM Toggle */}
-                    <div style={{ marginLeft: 16 }}>
+                    <div style={{ marginLeft: 8 }}>
                         <button
                             onClick={toggleAMPM}
                             style={{
                                 background: 'rgba(13, 148, 136, 0.1)', color: 'var(--accent-primary)',
-                                border: 'none', padding: '10px 14px', borderRadius: 'var(--radius-sm)',
-                                fontWeight: 800, fontSize: 15, cursor: 'pointer', transition: 'all 0.2s',
-
+                                border: 'none', padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+                                fontWeight: 800, fontSize: 14, cursor: 'pointer', transition: 'all 0.2s',
                             }}
                             onMouseOver={(e) => e.target.style.background = 'rgba(13, 148, 136, 0.18)'}
                             onMouseOut={(e) => e.target.style.background = 'rgba(13, 148, 136, 0.1)'}
