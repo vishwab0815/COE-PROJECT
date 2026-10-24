@@ -4,6 +4,119 @@ A state-of-the-art backend/frontend software architecture for processing massive
 
 ---
 
+## 🚀 Quick Start (Run on Your Laptop)
+
+### ✅ Prerequisites
+
+Install these before anything else:
+
+| Tool | Version | Download |
+|------|---------|----------|
+| Python | **3.12** | [python.org/downloads](https://www.python.org/downloads/) |
+| Node.js | **20+** | [nodejs.org](https://nodejs.org/) |
+| Git | Latest | [git-scm.com](https://git-scm.com/) |
+| NVIDIA GPU | Optional | Falls back to CPU automatically |
+
+---
+
+### 📦 Step 1 — Clone the Repository
+
+```powershell
+git clone https://github.com/vishwab0815/COE-PROJECT.git
+cd COE-PROJECT
+```
+
+---
+
+### ⚙️ Step 2 — One-Time Setup
+
+Run this **once only**. It automatically:
+- Creates a Python virtual environment (`backend/venv`)
+- Installs all Python dependencies (PyTorch, CUDA, FaceNet, FAISS, etc.)
+- Downloads portable MongoDB into `mongodb/` *(no system install needed)*
+- Installs React npm packages
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+```
+
+> ⏳ This may take 5–10 minutes on first run (downloading PyTorch + MongoDB).
+
+---
+
+### 🔑 Step 3 — Create Your `.env` File
+
+```powershell
+copy .env.example .env
+```
+
+Open `.env` and set at minimum:
+```
+ADMIN_PIN=1234
+SECRET_KEY=any_long_random_string_here
+```
+
+> The defaults work fine for local testing. Do NOT commit your `.env` file.
+
+---
+
+### ▶️ Step 4 — Run the App
+
+```powershell
+scripts\start_app.bat
+```
+
+This opens **3 terminal windows** automatically:
+- 🍃 **MongoDB** — local database (no install needed)
+- ⚡ **FastAPI Backend** — `http://localhost:8000`
+- ⚛️ **React Frontend** — `http://localhost:5173`
+
+**Open your browser and go to:** 👉 **http://localhost:5173**
+
+---
+
+### 🛑 Step 5 — Stop the App
+
+```powershell
+scripts\stop_app.bat
+```
+
+---
+
+### 🔧 Troubleshooting
+
+**Backend fails with "Connection refused" to MongoDB?**
+
+This happens when MongoDB has a stale lock file from a previous unclean shutdown. Fix it by running:
+
+```powershell
+Remove-Item data\db\mongod.lock -Force -ErrorAction SilentlyContinue
+```
+
+Then run `scripts\start_app.bat` again.
+
+**Backend can't connect even after the fix?**
+
+Make sure your `.env` has:
+```
+MONGO_URI=mongodb://127.0.0.1:27017
+```
+*(Use `127.0.0.1` instead of `localhost` to avoid IPv6 issues on Windows)*
+
+---
+
+## 🌐 URLs & Access
+
+| URL | Description |
+|-----|-------------|
+| `http://localhost:5173` | React Dashboard (main app) |
+| `http://localhost:8000/docs` | FastAPI Swagger API Docs |
+| `http://localhost:8000/api/health` | Health Check |
+
+**Admin Login PIN:** set via `ADMIN_PIN` in your `.env` (default: `1234`)
+
+---
+
 ## ⚡ Core Architecture
 
 The system utilizes an enterprise-grade `app` segregation, breaking logic into dedicated domains for scalability and maintenance.
@@ -35,93 +148,82 @@ graph TD
     API --> React["React Frontend Dashboard"]
 ```
 
-## 🏗 Enterprise Directory Structure
+---
+
+## 🏗 Directory Structure
 
 ```text
-attendance_ai/
+COE-PROJECT/
 ├── backend/
 │   ├── app/                      # Enterprise Architecture Namespace
-│   │   ├── api/                  # FastAPI Application Controllers
-│   │   │   └── routes/           # (students.py, attendance.py)
-│   │   ├── core/                 # Foundation & Constants
-│   │   │   ├── config.py         # ENV Ingestion
-│   │   │   └── database.py       # Motor async connection pool
-│   │   ├── models/               # Pydantic schemas required by API
-│   │   ├── services/             # Distinct Business Logic
-│   │   │   ├── face_engine.py    # YOLOv8 + FaceNet + FAISS CUDA Pipeline
-│   │   │   └── stream_manager.py # Threading + Shift State Controller
-│   │   ├── seed.py               # Bulk upsert CSV migration tool
-│   │   └── main.py               # Uvicorn Bootstrapper
-├── frontend/                     # React Server
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── dashboard/        # Decoupled stateless modules
-│   │   ├── pages/                # Views (Dashboard.jsx)
-│   │   └── services/             # Axios/Fetch api.js handler
-├── .env                          # Secret Variables (See .env.example)
-└── .gitignore                    # Comprehensive restriction overrides
+│   │   ├── api/routes/           # FastAPI route controllers
+│   │   ├── core/                 # Config, DB connection, security
+│   │   ├── models/               # Pydantic schemas
+│   │   ├── services/             # AI pipeline (face_engine, stream_manager)
+│   │   └── main.py               # Uvicorn entry point
+│   └── venv/                     # Python virtual environment (auto-created)
+├── frontend/                     # React + Vite app
+│   └── src/
+│       ├── components/           # Reusable UI components
+│       ├── pages/                # Dashboard, Attendance, Register, etc.
+│       └── services/api.js       # Axios API handler
+├── mongodb/                      # Portable MongoDB binary (auto-downloaded)
+├── data/db/                      # MongoDB data files (git-ignored)
+├── scripts/
+│   ├── setup.ps1                 # One-time setup script
+│   ├── start_app.bat             # Start all services (dev mode)
+│   ├── stop_app.bat              # Stop all services
+│   ├── start_mongo.ps1           # Start MongoDB only
+│   └── stop_mongo.ps1            # Stop MongoDB only
+├── .env.example                  # Environment variable template
+├── .env                          # Your local config (git-ignored, create from .env.example)
+└── requirements.txt              # Python dependencies
 ```
+
+---
 
 ## 🚀 Key Features
 
-1. **YOLOv8 + ByteTrack Pipeline:** `MTCNN` is fully deprecated. Registration and frame parsing both rely entirely on `yolov8n-face.pt` running aggressively fast on GPU natively. Faces are dynamically tracked across frames before recognition, averting misidentifications from quick blur vectors.
-2. **Half Precision (FP16):** Tensor operations for `InceptionResnetV1` run in `.half()` footprint mode, expanding concurrency threshold allowing massive 40-student 10FPS drops.
-3. **Shift Tracking Configs:** Shift properties are stored inside `global_config` in MongoDB, instantly syncing IN/OUT behavior thresholds (e.g., Late vs On-Time vs Early Logout) dynamically off the frontend GUI without a hard reload.
-4. **React Modularization:** The Dashboard is stripped away from unmaintainable inline components into segmented, independently scalable components (`ShiftSettings.jsx`, `StatCards.jsx`, `BranchBreakdown.jsx`, `ActivityFeed.jsx`).
+1. **YOLOv8 + ByteTrack Pipeline:** Face detection and tracking across frames using `yolov8n-face.pt` on GPU.
+2. **Half Precision (FP16):** FaceNet runs in `.half()` mode — handles 40+ students at 10 FPS on a single GPU.
+3. **Shift Tracking Configs:** Login/logout time thresholds stored in MongoDB — configurable live from the dashboard.
+4. **No Training Needed:** YOLOv8 and FaceNet weights download automatically. Students are enrolled live from the **Register Student** page.
+5. **Zero System Dependencies:** MongoDB runs as a bundled portable binary — no installation, no service, no admin rights.
 
-## 🛠 Setup & Installation
+---
 
-Requirements: Windows, Python **3.12**, Node 20+, NVIDIA GPU (optional — falls back to CPU). No Docker and no system-wide MongoDB install needed.
-
-**1. One-time setup** (creates `backend/venv`, installs CUDA 12.8 PyTorch + all deps, `npm ci`, downloads portable MongoDB into `mongodb/`, creates `.env`)
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
-```
-Then edit `.env` — at minimum set **`ADMIN_PIN`** and **`SECRET_KEY`**.
-
-No training is needed: the YOLOv8-face detector is pretrained and downloaded on first start,
-FaceNet (VGGFace2) weights download automatically, and the FAISS index starts empty —
-students are enrolled live from the **Register Student** page.
-
-**2. Production run** (local MongoDB + built React app served by FastAPI)
-```powershell
-scripts\start_prod.bat            # or: scripts\start_prod.ps1 -Rebuild  to rebuild the frontend
-```
-Open `http://localhost:8000` (API docs at `/docs`, health at `/api/health`).
-
-**3. Development run** (hot reload; Vite on :5173 proxies `/api` to :8000)
-```powershell
-scripts\start_app.bat
-```
-
-### Database (local, inside the project)
-
-MongoDB runs from `mongodbin\mongod.exe` with its data in `data\db` — bound to `127.0.0.1:27017`,
-256 MB cache, no service, nothing installed on Windows. Both folders are git-ignored.
-
-| Action | Command |
-|---|---|
-| Start (also done by the start scripts) | `scripts\start_mongo.ps1` |
-| Stop cleanly (also done by `stop_app.bat`) | `scripts\stop_mongo.ps1` |
-| Back up | stop MongoDB, then copy the `data\db` folder |
-| Logs | `data\mongod.log` |
-
-### Configuration (`.env`)
+## ⚙️ Configuration (`.env`)
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `MONGO_URI` / `DB_NAME` | `mongodb://localhost:27017` / `attendance_db` | Database |
+| `MONGO_URI` | `mongodb://127.0.0.1:27017` | Database connection |
+| `DB_NAME` | `attendance_db` | Database name |
 | `CAMERA_SOURCE` | `0` | Webcam index or RTSP/HTTP URL |
-| `SIMILARITY_THRESHOLD` | `0.70` | Min cosine similarity to accept a match |
-| `ADMIN_PIN` | `1234` | Admin login PIN (verified server-side) |
+| `SIMILARITY_THRESHOLD` | `0.70` | Min cosine similarity to accept a face match |
+| `ADMIN_PIN` | `1234` | Admin login PIN |
 | `SECRET_KEY` | random per start | Signs admin session tokens |
-| `SESSION_MINUTES` | `5` | Admin session length |
-| `CORS_ORIGINS` | Vite dev origins | Only needed when frontend is on another origin |
+| `SESSION_MINUTES` | `5` | Admin session timeout |
 
-### API & access
+---
 
-All endpoints live under `/api`. Admin endpoints (students, registration, reports, shift settings)
-require the `Authorization: Bearer <token>` header from `POST /api/auth/login`.
-Kiosk endpoints (`/video-feed`, `/stream/*`, `/recent-marked`, `/mark-attendance*`) are public.
+## 🗄️ Database
+
+MongoDB runs from `mongodb\bin\mongod.exe` with data stored in `data\db` — bound to `127.0.0.1:27017`, 256 MB cache, no Windows service needed.
+
+| Action | Command |
+|---|---|
+| Start | `scripts\start_mongo.ps1` |
+| Stop | `scripts\stop_mongo.ps1` |
+| Logs | `data\mongod.log` |
+| Backup | Stop MongoDB, then copy `data\db` folder |
+
+---
+
+## 🔐 API Access
+
+All endpoints live under `/api`.
+
+- **Public** (kiosk): `/video-feed`, `/stream/*`, `/recent-marked`, `/mark-attendance*`
+- **Admin** (requires Bearer token from `POST /api/auth/login`): students, registration, reports, shift settings
 
 > Run a **single** uvicorn worker — the camera, ByteTrack state and FAISS index are in-process singletons.
