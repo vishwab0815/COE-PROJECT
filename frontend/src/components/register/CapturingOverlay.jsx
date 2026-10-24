@@ -1,10 +1,15 @@
 import { Camera } from 'lucide-react';
 
+// Pose prompts spread the burst across angles — 15 frames of the same frozen pose
+// give the recognizer one view of the student and poor matches when they turn.
+const POSES = ['Look straight at the camera', 'Turn slightly LEFT', 'Turn slightly RIGHT', 'Tilt your chin UP a little', 'Tilt your chin DOWN a little'];
+
 /**
- * CapturingOverlay — Shows capture progress with a live counter and progress bar.
+ * CapturingOverlay — Shows capture progress with a live counter, pose prompt and progress bar.
  */
 export default function CapturingOverlay({ capturedCount, totalCaptures }) {
     const percent = (capturedCount / totalCaptures) * 100;
+    const pose = POSES[Math.min(POSES.length - 1, Math.floor((capturedCount / totalCaptures) * POSES.length))];
 
     return (
         <div style={{
@@ -36,6 +41,17 @@ export default function CapturingOverlay({ capturedCount, totalCaptures }) {
                 }}>
                     Capturing... {capturedCount}/{totalCaptures}
                 </span>
+            </div>
+
+            {/* Pose prompt */}
+            <div key={pose} style={{
+                position: 'absolute', bottom: 36, left: '50%', transform: 'translateX(-50%)',
+                background: 'rgba(12,18,34,0.78)', color: '#fff',
+                padding: '14px 28px', borderRadius: 14,
+                fontSize: 20, fontWeight: 800, letterSpacing: '-0.01em', whiteSpace: 'nowrap',
+                animation: 'fadeIn 0.25s ease',
+            }}>
+                {pose}
             </div>
 
             {/* Bottom progress bar */}

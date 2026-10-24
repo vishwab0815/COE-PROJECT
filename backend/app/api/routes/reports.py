@@ -3,6 +3,7 @@ Report routes — Attendance report, CSV export, and statistics.
 """
 
 import io
+import csv
 from datetime import datetime
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
@@ -60,16 +61,18 @@ async def export_attendance_csv(
     cursor = db.attendance.find(query, {"_id": 0}).sort([("date", -1), ("login_time", -1)])
     records = await cursor.to_list(length=10000)
 
-    # Build CSV
-    lines = ["Roll No,Name,Branch,Date,Login Time,Login Status,Logout Time,Logout Status"]
+    # Build CSV (csv module handles quoting of names containing commas)
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["Roll No", "Name", "Branch", "Date", "Login Time", "Login Status", "Logout Time", "Logout Status"])
+    fields = ("roll_no", "name", "branch", "date", "login_time", "login_status", "logout_time", "logout_status")
     for r in records:
-        lines.append(f"{r['roll_no']},{r['name']},{r['branch']},{r['date']},{r.get('login_time', '')},{r.get('login_status', '')},{r.get('logout_time', '')},{r.get('logout_status', '')}")
+        writer.writerow([r.get(f) or "" for f in fields])
 
-    csv_content = "\n".join(lines)
     filename = f"attendance_report_{date or 'all'}.csv"
 
     return StreamingResponse(
-        io.StringIO(csv_content),
+        io.StringIO(buf.getvalue()),
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

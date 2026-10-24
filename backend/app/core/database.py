@@ -13,10 +13,14 @@ db = None
 async def connect_db():
     """Initialize the MongoDB connection and create indexes."""
     global client, db
+    # tlsCAFile implies TLS, so only pass it for Atlas (mongodb+srv) or explicit tls URIs —
+    # a plain local/Docker mongod would reject the handshake.
+    uri = settings.MONGO_URI
+    tls_opts = {"tlsCAFile": certifi.where()} if uri.startswith("mongodb+srv://") or "tls=true" in uri or "ssl=true" in uri else {}
     client = AsyncIOMotorClient(
-        settings.MONGO_URI,
-        tlsCAFile=certifi.where(),
+        uri,
         serverSelectionTimeoutMS=10000,
+        **tls_opts,
     )
     db = client[settings.DB_NAME]
 

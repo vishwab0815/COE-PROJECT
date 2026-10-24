@@ -16,8 +16,7 @@ export default function KioskPage() {
             .catch(err => console.log('Failed to resume stream', err))
             .finally(() => {
                 // Bypass browser caching to force a fresh MJPEG stream pipeline
-                const baseUrl = import.meta.env.VITE_API_URL || '/api';
-                setStreamUrl(`${baseUrl}/video-feed?t=${Date.now()}`);
+                setStreamUrl(api.videoFeedUrl());
             });
 
         // Setup live polling for recent attendance marks
@@ -49,7 +48,7 @@ export default function KioskPage() {
                         });
                     }
                 }
-            } catch (err) {
+            } catch {
                 // Ignore silent polling network errors
             }
         }, 1500);
@@ -58,8 +57,7 @@ export default function KioskPage() {
             clearInterval(pollInterval);
             // MUST release hardware camera when component unmounts to prevent locking
             // Utilize sendBeacon because browser unmounts often cancel standard async fetches
-            const baseUrl = import.meta.env.VITE_API_URL || '/api';
-            navigator.sendBeacon(`${baseUrl}/stream/pause`);
+            api.pauseStreamBeacon();
         };
     }, []);
 

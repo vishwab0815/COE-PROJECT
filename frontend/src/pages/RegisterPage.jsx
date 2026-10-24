@@ -28,7 +28,7 @@ import ErrorModal from '../components/register/ErrorModal';
 import RegistrationForm from '../components/register/RegistrationForm';
 
 const TOTAL_CAPTURES = 15;
-const CAPTURE_INTERVAL_MS = 300;
+const CAPTURE_INTERVAL_MS = 400; // 6 s burst — time to follow the 5 pose prompts (3 frames each)
 
 export default function RegisterPage() {
     const navigate = useNavigate();

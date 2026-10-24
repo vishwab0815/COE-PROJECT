@@ -2,13 +2,25 @@
 Student routes — GET /students, POST /register, POST /register-with-face, DELETE /students/{roll_no}
 """
 
+import re
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
+from fastapi.concurrency import run_in_threadpool
 from typing import Optional
 from app.core.database import get_db
 from app.services.registrar import register_faces, delete_student as engine_delete
 from app.models.schemas import StudentCreate, StudentOut
 
 router = APIRouter(tags=["Students"])
+
+# Roll numbers double as folder names under processed_dataset/
+_ROLL_NO_RE = re.compile(r"^[A-Z0-9_-]{1,32}$")
+
+
+def _validate_roll_no(roll_no: str) -> str:
+    roll_no = roll_no.strip().upper()
+    if not _ROLL_NO_RE.match(roll_no):
+        raise HTTPException(status_code=422, detail="Roll number may only contain letters, digits, '-' and '_' (max 32)")
+    return roll_no
 
 
 @router.get("/students", response_model=list[StudentOut])
@@ -26,9 +38,10 @@ async def list_students(
         query["branch"] = branch.upper()
 
     if search:
+        pattern = re.escape(search)
         query["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"roll_no": {"$regex": search, "$options": "i"}},
+            {"name": {"$regex": pattern, "$options": "i"}},
+            {"roll_no": {"$regex": pattern, "$options": "i"}},
         ]
 
     cursor = db.students.find(query, {"_id": 0}).skip(skip).limit(limit).sort("roll_no", 1)
@@ -51,14 +64,16 @@ async def register_student(student: StudentCreate):
     """Register a new student."""
     db = get_db()
 
+    roll_no = _validate_roll_no(student.roll_no)
+
     # Check if already exists
-    existing = await db.students.find_one({"roll_no": student.roll_no.upper()})
+    existing = await db.students.find_one({"roll_no": roll_no})
     if existing:
-        raise HTTPException(status_code=409, detail=f"Student {student.roll_no} already exists")
+        raise HTTPException(status_code=409, detail=f"Student {roll_no} already exists")
 
     doc = {
-        "roll_no": student.roll_no.upper(),
-        "name": student.name,
+        "roll_no": roll_no,
+        "name": student.name.strip(),
         "branch": student.branch.upper(),
     }
     await db.students.insert_one(doc)
@@ -78,8 +93,11 @@ async def register_with_face(
     updates FAISS index live, and registers in MongoDB.
     """
     db = get_db()
-    roll_no = roll_no.upper()
-    branch = branch.upper()
+    roll_no = _validate_roll_no(roll_no)
+    name = name.strip()
+    branch = branch.strip().upper()
+    if not name or not branch:
+        raise HTTPException(status_code=422, detail="Name and branch are required")
 
     # Check if already exists
     existing = await db.students.find_one({"roll_no": roll_no})
@@ -97,7 +115,7 @@ async def register_with_face(
         raise HTTPException(status_code=400, detail="No images received")
 
     # Process faces on GPU and update FAISS index
-    result = register_faces(roll_no, image_bytes_list)
+    result = await run_in_threadpool(register_faces, roll_no, image_bytes_list)
 
     if not result["success"]:
         raise HTTPException(status_code=422, detail=result["error"])
@@ -135,7 +153,7 @@ async def delete_student(roll_no: str):
         raise HTTPException(status_code=404, detail=f"Student {roll_no} not found")
 
     # Delete from FAISS index + photos
-    face_result = engine_delete(roll_no)
+    face_result = await run_in_threadpool(engine_delete, roll_no)
 
     # Delete from MongoDB
     await db.students.delete_one({"roll_no": roll_no})

@@ -1,29 +1,43 @@
 # ═══════════════════════════════════════════
-#  Attendance AI — Python Dependencies
+#  Attendance AI — Python Dependencies (Python 3.12)
 # ═══════════════════════════════════════════
+#
+#  Install order (inside backend/venv):
+#    1. pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#    2. pip install -r requirements.txt
+#    3. pip install facenet-pytorch==2.6.0 --no-deps
+#
+#  facenet-pytorch pins torch<2.3 / numpy<2, which has no CUDA support for
+#  RTX 50-series (Blackwell) GPUs — so it is installed without its deps.
+#  Only InceptionResnetV1 is used from it, which works on current torch.
 
 # ── Web Framework ──
 fastapi==0.131.0
 uvicorn[standard]==0.41.0
 python-multipart==0.0.22
 pydantic-settings==2.13.1
+python-dotenv>=1.0.0
 
 # ── Database ──
 motor==3.7.1
 pymongo==4.16.0
+certifi
 
-# ── Face Recognition (GPU) ──
-facenet-pytorch==2.6.0
+# ── Face Detection / Tracking ──
+ultralytics>=8.3.0
+lap>=0.5.12            # ByteTrack association
+opencv-python>=4.10.0
+
+# ── Face Recognition ──
 faiss-cpu==1.13.2
+requests               # facenet-pytorch weight download
+tqdm                   # facenet-pytorch weight download progress
 
-# ── Deep Learning (CUDA) ──
-# Install PyTorch with CUDA from: https://pytorch.org/get-started/locally/
-# Example: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
-torch>=2.0.0
-torchvision>=0.15.0
+# ── Deep Learning (CUDA) — see install order above ──
+torch>=2.7.0
+torchvision>=0.22.0
 
 # ── Data Processing ──
 numpy>=2.0.0
 Pillow>=10.0.0
 pandas>=2.0.0
-

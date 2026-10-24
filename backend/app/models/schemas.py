@@ -52,6 +52,16 @@ class MultiRecognitionResult(BaseModel):
     results: list[RecognitionResult] = []
     message: str
 
+# ─── Auth ────────────────────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    pin: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+    expires_at: int  # epoch milliseconds
+
 # ─── Settings ────────────────────────────────────────────────────────────────
 
 class ShiftConfig(BaseModel):

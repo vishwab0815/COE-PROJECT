@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { todayIST } from '../utils/date';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area, Legend, RadialBarChart, RadialBar,
@@ -32,7 +33,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function AnalyticsPage() {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(todayIST());
 
     const fetchStats = async () => {
         setLoading(true);

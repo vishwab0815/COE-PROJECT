@@ -5,6 +5,7 @@ Attendance marking routes — POST /mark-attendance, /mark-attendance-multi, /re
 import time
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi.concurrency import run_in_threadpool
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.constants import IST
@@ -38,7 +39,7 @@ async def mark_attendance(file: UploadFile = File(..., description="Image file w
         raise HTTPException(status_code=400, detail="Empty file uploaded")
 
     # Run face recognition (GPU-accelerated)
-    roll_no, similarity, error = recognize(image_bytes)
+    roll_no, similarity, error = await run_in_threadpool(recognize, image_bytes)
 
     # Handle no face detected
     if error:
@@ -162,7 +163,7 @@ async def mark_attendance_multi(file: UploadFile = File(..., description="Image 
         raise HTTPException(status_code=400, detail="Empty file uploaded")
 
     # Run multi-face recognition (GPU batch pipeline)
-    multi_result = recognize_multi(image_bytes)
+    multi_result = await run_in_threadpool(recognize_multi, image_bytes)
 
     if multi_result["error"]:
         return MultiRecognitionResult(
@@ -276,7 +277,7 @@ async def mark_attendance_multi(file: UploadFile = File(..., description="Image 
             message=f"{student['name']} Logged In ({status})",
         ))
 
-    newly_marked = sum(1 for r in individual_results if r.status == "Present")
+    newly_marked = sum(1 for r in individual_results if r.status in ("On Time", "Late"))
     already_marked = sum(1 for r in individual_results if r.status == "Already Marked")
 
     return MultiRecognitionResult(

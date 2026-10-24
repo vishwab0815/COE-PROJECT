@@ -3,6 +3,9 @@ Write-Host "   Attendance AI - PowerShell Launcher" -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host ""
 
+Write-Host "[0/2] Starting local MongoDB..." -ForegroundColor Yellow
+& (Join-Path $PSScriptRoot "start_mongo.ps1")
+
 Write-Host "[1/2] Starting FastAPI Backend (Port 8000)..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd ..\backend; `$host.ui.RawUI.WindowTitle = 'Backend Server'; `$py = 'python'; if (Test-Path '..\..\.cuda\Scripts\python.exe') { `$py = '..\..\.cuda\Scripts\python.exe' } elseif (Test-Path 'venv\Scripts\python.exe') { `$py = 'venv\Scripts\python.exe' } elseif (Test-Path '.venv\Scripts\python.exe') { `$py = '.venv\Scripts\python.exe' }; Write-Host `"Using Python: `$py`" -ForegroundColor Cyan; & `$py -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ShieldCheck, Video } from 'lucide-react';
+import { api } from '../services/api';
 
 export default function CameraPage() {
     const [streamUrl, setStreamUrl] = useState('');
@@ -8,19 +9,18 @@ export default function CameraPage() {
 
     useEffect(() => {
         // Ensure backend stream is not paused from the registration page
-        fetch('http://localhost:8000/stream/resume', { method: 'POST' })
+        api.resumeStream()
             .catch(err => console.log('Failed to resume stream', err))
             .finally(() => {
                 // Bypass browser caching to force a fresh MJPEG stream pipeline
-                setStreamUrl(`http://localhost:8000/video-feed?t=${Date.now()}`);
+                setStreamUrl(api.videoFeedUrl());
             });
 
         // Setup live polling for recent attendance marks
         let lastCheck = Date.now() / 1000;
         const pollInterval = setInterval(async () => {
             try {
-                const res = await fetch('http://localhost:8000/recent-marked');
-                const data = await res.json();
+                const data = await api.getRecentMarked();
 
                 if (data.recent && Array.isArray(data.recent)) {
                     // Filter marks that are completely brand new
@@ -44,7 +44,7 @@ export default function CameraPage() {
                         });
                     }
                 }
-            } catch (err) {
+            } catch {
                 // Ignore silent polling network errors
             }
         }, 1500);
@@ -52,8 +52,7 @@ export default function CameraPage() {
         return () => {
             clearInterval(pollInterval);
             // GUARANTEE: Free the hardware backend OpenCV camera when leaving the route
-            const baseUrl = import.meta.env.VITE_API_URL || '/api';
-            navigator.sendBeacon(`${baseUrl}/stream/pause`);
+            api.pauseStreamBeacon();
         };
     }, []);
 

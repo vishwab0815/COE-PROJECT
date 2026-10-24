@@ -7,18 +7,31 @@ export default function LoginPage() {
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
     const [shake, setShake] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
 
-    const handleSubmit = (e) => {
+    const fail = (message) => {
+        setError(message);
+        setShake(true);
+        setPin('');
+        setTimeout(() => setShake(false), 500);
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (login(pin)) {
-            navigate('/', { replace: true });
-        } else {
-            setError('Incorrect PIN');
-            setShake(true);
-            setPin('');
-            setTimeout(() => setShake(false), 500);
+        if (submitting || !pin) return;
+        setSubmitting(true);
+        try {
+            if (await login(pin)) {
+                navigate('/', { replace: true });
+            } else {
+                fail('Incorrect PIN');
+            }
+        } catch {
+            fail('Unable to reach server');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -87,7 +100,7 @@ export default function LoginPage() {
                         </div>
                     )}
 
-                    <button type="submit" style={{
+                    <button type="submit" disabled={submitting} style={{
                         width: '100%', padding: '14px 20px',
                         background: 'var(--gradient-primary)', color: 'white',
                         border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 700,
@@ -98,7 +111,7 @@ export default function LoginPage() {
                         onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(13,148,136,0.3)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(13,148,136,0.25)'; }}
                     >
-                        Unlock Admin
+                        {submitting ? 'Verifying...' : 'Unlock Admin'}
                     </button>
                 </form>
 

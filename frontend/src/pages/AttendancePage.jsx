@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { todayIST } from '../utils/date';
 import { Download, Search } from 'lucide-react';
 import DatePicker from '../components/DatePicker';
 
 export default function AttendancePage() {
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(todayIST());
     const [branch, setBranch] = useState('');
     const [rollSearch, setRollSearch] = useState('');
 
@@ -32,11 +33,15 @@ export default function AttendancePage() {
         return () => clearInterval(interval);
     }, [date, branch, rollSearch]);
 
-    const handleExport = () => {
+    const handleExport = async () => {
         const params = {};
         if (date) params.date = date;
         if (branch) params.branch = branch;
-        api.exportCSV(params);
+        try {
+            await api.exportCSV(params);
+        } catch (err) {
+            console.error('CSV export failed:', err);
+        }
     };
 
     return (

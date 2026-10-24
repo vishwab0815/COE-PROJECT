@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { todayIST } from '../utils/date';
 import { Clock, LayoutDashboard } from 'lucide-react';
 import StatCards from '../components/dashboard/StatCards';
 import BranchBreakdown from '../components/dashboard/BranchBreakdown';
@@ -13,7 +14,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayIST();
 
     const fetchData = async () => {
         try {

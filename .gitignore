@@ -90,3 +90,7 @@ htmlcov/
 *.tmp
 *.temp
 *.orig
+
+# ── Local MongoDB (portable binary + database files) ──
+mongodb/
+data/
